@@ -1,0 +1,9 @@
+{
+    "db": {
+        "host": "localhost",
+        "database": "iot_db",
+        "user": "postgres",
+        "password": "postgres",
+        "port": "5432"
+    }
+}
