@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h> 
 #include <string.h>
 
 
@@ -6,6 +7,7 @@
 #include "esp_log.h"
 #include "esp_system.h"
 #include "esp_wifi.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "lwip/err.h"
@@ -27,6 +29,86 @@ static const char* TAG = "WIFI";
 static int s_retry_num = 0;
 static EventGroupHandle_t s_wifi_event_group;
 
+int rand_int(int lower_bound, int upper_bound){
+    int value = rand() % (upper_bound - lower_bound + 1) + lower_bound; 
+    return value;
+}
+
+float rand_float( float lower_bound, float upper_bound ){
+    float scale = rand() / (float) RAND_MAX; 
+    return lower_bound + scale * ( upper_bound - lower_bound );      
+}
+
+void get_mac(uint8_t* baseMac){
+    esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
+}
+
+
+char* create_header(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_layer, uint16_t* msg_length){
+    char* res = (char*)malloc(12 * sizeof(char));
+
+    uint8_t baseMac[6];
+    get_mac(baseMac);
+    memcpy(res, baseMac, 6);
+    memcpy(res + 6, msg_id, 2);
+    memcpy(res + 8, protocol_id, 1);
+    memcpy(res + 9, transport_layer, 1);
+    memcpy(res + 10, msg_length, 2); 
+
+    return res;
+}
+
+char* create_packet(uint8_t packet, uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_layer, uint16_t* msg_length){
+    char* header = create_header(msg_id, protocol_id, transport_layer, msg_length);
+    uint64_t time = esp_timer_get_time();
+
+    if(packet == 0){
+        char* packet = (char*)malloc(16 * sizeof(char));
+
+        memcpy(packet, header, 12);
+        free_packet(header);
+
+        memcpy(packet + 12, &time, 4);
+    }
+
+    uint8_t batt_level = create_random_int(1,100);
+
+    else if(packet == 1){
+
+        char* packet = (char*)malloc(17 * sizeof(char));
+
+        memcpy(packet, header, 12);
+        free_packet(header);
+
+        memcpy(packet + 12, &time, 4);
+        memcpy(packet + 16, batt_level, 1);
+    }
+
+    else if(packet == 2){
+        uint8_t temp = rand_int(5,30);
+        uint64_t press = rand_int(1000, 1200); 
+        uint8_t hum = rand_int(30, 80);
+        float co = rand_float(30.0f, 200.0f);
+
+        char* packet = (char*)malloc(27 * sizeof(char));
+
+        memcpy(packet, header, 12);
+        free_packet(header);
+
+        memcpy(packet + 12, &time, 4);
+        memcpy(packet + 16, batt_level, 1);
+        memcpy(packet + 17, temp, 1);
+        memcpy(packet + 18, press, 4);
+        memcpy(packet + 22, hum, 1);
+        memcpy(packet + 23, co, 4);
+    }
+
+    return packet;
+}
+
+void free_packet(char* packet){
+    free(packet);
+}
 
 void event_handler(void* arg, esp_event_base_t event_base,
                           int32_t event_id, void* event_data) {
@@ -104,6 +186,9 @@ void wifi_init_sta(char* ssid, char* password) {
     vEventGroupDelete(s_wifi_event_group);
 }
 
+// Initializes the Non-Volatile Storage (NVS) flash memory.
+// No parameters.
+// No return value.
 void nvs_init() {
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES ||
@@ -115,7 +200,7 @@ void nvs_init() {
 }
 
 
-void socket_tcp(){
+void socket_tcp(char * msg){
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(SERVER_PORT);
@@ -136,7 +221,7 @@ void socket_tcp(){
     }
 
     // Enviar mensaje "Hola Mundo"
-    send(sock, "hola mundo", strlen("hola mundo"), 0);
+    send(sock, msg, strlen(msg), 0);
 
     // Recibir respuesta
 
@@ -146,8 +231,27 @@ void socket_tcp(){
         ESP_LOGE(TAG, "Error al recibir datos");
         return;
     }
+
     ESP_LOGI(TAG, "Datos recibidos: %s", rx_buffer);
     
+
+    send(sock, msg, strlen(msg), 0); //Tenemos que modificar esto de tal forma en que pedimos la configuracíon activa
+
+
+    //Generamos un paquete dependiendo de que wea me llega.
+    if (rx_buffer == "00"){
+        // INICIALIZAR VARIABLES
+        char* header = create_header();
+    }
+    else if (rx_buffer == "01"){
+        //P1
+    }
+    else if (rx_buffer == "02"){
+        //P2
+    }
+
+    esp_deep_sleep(1000000); //Nos dormimos un segundo
+    //Volvemos al paso 1
     // Cerrar el socket
     close(sock);
 }
@@ -157,6 +261,7 @@ void socket_tcp(){
 void app_main(void){
     nvs_init();
     wifi_init_sta(WIFI_SSID, WIFI_PASSWORD);
-    ESP_LOGI(TAG,"Conectado a WiFi!\n");
-    socket_tcp();
+    ESP_LOGI(TAG,"Conectado a WiFi!\n"); 
+    char* msg = "hola mundo!"; 
+    socket_tcp(msg);
 }
