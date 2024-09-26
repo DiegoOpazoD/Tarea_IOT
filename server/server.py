@@ -61,8 +61,87 @@ def obtener_protocolo(conexion_db,id_conf):
         if cursor:
             cursor.close()
             print("Cursor cerrado.")
-    
 
+#Funcion para al momento de conectarse a una esp registrarla en la tabla Dev
+def guardar_dispositivo(mac_add,conexion_db):
+    cursor = None
+    try:
+        cursor = conexion_db.cursor()
+        
+        cursor.execute("SELECT device_id FROM Dev WHERE mac_address = %s;", (mac_add,))
+        dispositivo = cursor.fetchone()
+        
+        if dispositivo:
+            # Si el dispositivo ya existe, retorno device_id
+            device_id = dispositivo[0]
+            print(f"El dispositivo con MAC {mac_add} ya está registrado con device_id {device_id}.")
+            return device_id
+        else:
+            # Si no existe, insertamos la MAC y obtenemos el nuevo device_id
+            cursor.execute("INSERT INTO Dev (mac_address) VALUES (%s) RETURNING device_id;", (mac_add,))
+            device_id = cursor.fetchone()[0]
+            conexion_db.commit()  # Confirmar los cambios en la base de datos
+            print(f"Dispositivo con MAC {mac_add} registrado con device_id {device_id}.")
+            return device_id
+    
+    except Exception as e:
+        print(f"Error al obtener device_id : {e}")
+        if conexion_db:
+            conexion_db.rollback()  #Hago rollback de las consultas sql 
+        return None
+    
+    finally:
+        if cursor:
+            cursor.close()
+            print("Cursor cerrado.")
+
+#Funcion para registrar el log el header de un mensaje recibido
+def guardar_log(device_id, msg_id, protocol_id, transport_layer, length, conexion_db):
+    cursor = None
+    try:
+        cursor = conexion_db.cursor()
+        
+        cursor.execute("""
+            INSERT INTO Log (device_id, msg_id, protocol_id, transport_layer, length) 
+            VALUES (%s, %s, %s, %s, %s) 
+            RETURNING packet_id;
+        """, (device_id, msg_id, protocol_id, transport_layer, length))
+        
+        # Obtener el packet_id generado
+        packet_id = cursor.fetchone()[0]
+        conexion_db.commit()  # Confirmar los cambios en la base de datos
+        
+        print(f"Registro de log guardado para msg_id: {msg_id} Con packet_id : {packet_id}")
+        return packet_id
+    
+    except Exception as e:
+        print(f"Error al guardar el log: {e}")
+        if conexion_db:
+            conexion_db.rollback()  # Deshacer cambios en caso de error
+        return None
+    
+    finally:
+        if cursor:
+            cursor.close()
+            print("Cursor cerrado.")
+
+#Funcion para guardar los datos recibidos de un mensaje para la tabla data
+def guardar_datos_db():
+    return
+
+#funcion para enviar la configuracion de vuelta a una esp conectada
+def enviar_configuracion(conn, configuracion):
+    protocolo, capa_transporte = configuracion
+    
+    #lo dejo mientras solo separa como protocolo,capa_transporte
+    mensaje = f"{protocolo} , {capa_transporte}"
+    
+    # Envía el mensaje codificado en UTF-8
+    conn.sendall(mensaje.encode('utf-8'))
+    
+    print(f"Configuración enviada: {mensaje}")
+
+    
 conexion_db = conectar_db()
 while not conexion_db:
     print("Base de datos no conectada, reintentando conexion")
@@ -91,8 +170,8 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     id_conf = 1
                     configuracion = obtener_protocolo(conexion_db,id_conf)
                     if configuracion:
-                        protocolo, capa_transporte = configuracion
-                        print(f"Protocolo: {protocolo}, Capa de Transporte: {capa_transporte}")
+                        enviar_configuracion(configuracion,conn)
+                        
                     else:
                         print("No tengo los datos para responder, espero otro intento de comunicacion")
 
