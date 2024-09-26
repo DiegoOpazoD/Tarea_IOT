@@ -126,7 +126,7 @@ def guardar_log(device_id, msg_id, protocol_id, transport_layer, length, conexio
             print("Cursor cerrado.")
 
 #Funcion para guardar los datos recibidos de un mensaje para la tabla data
-def guardar_datos_db():
+def guardar_datos_db(packet_id):
     return
 
 #funcion para enviar la configuracion de vuelta a una esp conectada
@@ -195,8 +195,10 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                         continue
                     data = obtener_mensaje_datos(conn)
                     #parse paquete y obtener header y body con los datos
+                    device_id = guardar_dispositivo(mac_address,conexion_db) #guardo el dispositivo con el que estoy recibiendo datos en Dev
+                    #device_id identifica el dispositivo que me esta mandando datos y es llave foranea en log
                     packet_id = guardar_log(device_id,msg_id,protocol_id,transport_layer,length,conexion_db) #guardo en log el mensaje que recibi
-                    
+                    guardar_datos_db(packet_id,protocol_id)
 
         except Exception as e:
                 print(f"Error durante la conexión: {e}")
