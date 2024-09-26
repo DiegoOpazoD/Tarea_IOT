@@ -141,6 +141,23 @@ def enviar_configuracion(conn, configuracion):
     
     print(f"Configuración enviada: {mensaje}")
 
+#funcion para recibir el mensaje con los datos 
+#lo dejo aparte para a futuro manejar aca el rearmar un mensaje de tamaño mayor a 1024 bytes, para iteracion 1 no hace falta
+def obtener_mensaje_datos(conn):
+    try:
+        # Recibe hasta 1024 bytes del cliente
+        data = conn.recv(1024)
+        
+        if data:
+            print(f"Mensaje recibido: {data}")
+            return data
+        else:
+            print("No se recibió ningún dato.")
+            return None
+    except Exception as e:
+        print(f"Error al recibir el mensaje: {e}")
+        return None
+
     
 conexion_db = conectar_db()
 while not conexion_db:
@@ -164,6 +181,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 data = conn.recv(1024)  # Recibe hasta 1024 bytes del cliente
                 if data:
                     print("Recibido: ", data.decode('utf-8'))
+
                     #parse paquete y entender que es, por ahora lo dejo como siempre solicita la configuracion
                     solicita_config = True
                     
@@ -174,9 +192,12 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                         
                     else:
                         print("No tengo los datos para responder, espero otro intento de comunicacion")
+                        continue
+                    data = obtener_mensaje_datos(conn)
+                    #parse paquete y obtener header y body con los datos
+                    packet_id = guardar_log(device_id,msg_id,protocol_id,transport_layer,length,conexion_db) #guardo en log el mensaje que recibi
+                    
 
-                    respuesta = "tu mensaje es: " + data.decode('utf-8')
-                    conn.sendall(respuesta.encode('utf-8'))  # Envía la respuesta al cliente
         except Exception as e:
                 print(f"Error durante la conexión: {e}")
     
