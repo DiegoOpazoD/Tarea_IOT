@@ -29,15 +29,24 @@ static const char* TAG = "WIFI";
 static int s_retry_num = 0;
 static EventGroupHandle_t s_wifi_event_group;
 
+/**
+ * Falta: 
+ * - Ver el tema de meoria que me comentó Diego
+ * 
+ * Aprox: 2 horas.
+ */
+
 int rand_int(int lower_bound, int upper_bound){
     int value = rand() % (upper_bound - lower_bound + 1) + lower_bound; 
     return value;
 }
 
+
 float rand_float( float lower_bound, float upper_bound ){
     float scale = rand() / (float) RAND_MAX; 
     return lower_bound + scale * ( upper_bound - lower_bound );      
 }
+
 
 void get_mac(uint8_t* baseMac){
     esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
@@ -58,7 +67,9 @@ char* create_header(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_l
     return res;
 }
 
-char* create_packet(uint8_t packet, uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_layer, uint16_t* msg_length){
+
+char* create_packet(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_layer, uint16_t* msg_length){
+    uint8_t packet = *protocol_id;
     char* header = create_header(msg_id, protocol_id, transport_layer, msg_length);
     uint64_t time = esp_timer_get_time();
 
@@ -106,9 +117,11 @@ char* create_packet(uint8_t packet, uint16_t* msg_id, uint8_t* protocol_id, uint
     return packet;
 }
 
+
 void free_packet(char* packet){
     free(packet);
 }
+
 
 void event_handler(void* arg, esp_event_base_t event_base,
                           int32_t event_id, void* event_data) {
@@ -131,6 +144,7 @@ void event_handler(void* arg, esp_event_base_t event_base,
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     }
 }
+
 
 void wifi_init_sta(char* ssid, char* password) {
     s_wifi_event_group = xEventGroupCreate();
@@ -186,9 +200,7 @@ void wifi_init_sta(char* ssid, char* password) {
     vEventGroupDelete(s_wifi_event_group);
 }
 
-// Initializes the Non-Volatile Storage (NVS) flash memory.
-// No parameters.
-// No return value.
+
 void nvs_init() {
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES ||
@@ -200,68 +212,88 @@ void nvs_init() {
 }
 
 
-void socket_tcp(char * msg){
+void socket_tcp(){
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(SERVER_PORT);
     inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr.s_addr);
 
-    // Crear un socket
     int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock < 0) {
-        ESP_LOGE(TAG, "Error al crear el socket");
+        ESP_LOGE(TAG, "Error creating socket");
         return;
     }
 
-    // Conectar al servidor
     if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
-        ESP_LOGE(TAG, "Error al conectar");
+        ESP_LOGE(TAG, "Error connecting to the server");
         close(sock);
         return;
     }
 
-    // Enviar mensaje "Hola Mundo"
+    char *msg = "Hi!";
     send(sock, msg, strlen(msg), 0);
-
-    // Recibir respuesta
 
     char rx_buffer[128];
     int rx_len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
     if (rx_len < 0) {
-        ESP_LOGE(TAG, "Error al recibir datos");
+        ESP_LOGE(TAG, "Error receiving data");
+        close(sock);
         return;
     }
+    rx_buffer[rx_len] = '\0'; 
+    ESP_LOGI(TAG, "Received data: %s", rx_buffer);
 
-    ESP_LOGI(TAG, "Datos recibidos: %s", rx_buffer);
-    
+    msg = "Active config pls.";
+    send(sock, msg, strlen(msg), 0);
 
-    send(sock, msg, strlen(msg), 0); //Tenemos que modificar esto de tal forma en que pedimos la configuracíon activa
-
-
-    //Generamos un paquete dependiendo de que wea me llega.
-    if (rx_buffer == "00"){
-        // INICIALIZAR VARIABLES
-        char* header = create_header();
+    rx_len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
+    if (rx_len < 0) {
+        ESP_LOGE(TAG, "Error receiving data");
+        close(sock);
+        return;
     }
-    else if (rx_buffer == "01"){
-        //P1
-    }
-    else if (rx_buffer == "02"){
-        //P2
+    rx_buffer[rx_len] = '\0';
+
+    // Extract fields from received data
+    uint16_t msg_id = *(uint16_t*)(rx_buffer);
+    uint8_t protocol_id = *(uint8_t*)(rx_buffer + 2);
+    uint8_t transport_layer = 0;
+    uint16_t msg_length;
+
+    if (protocol_id == 0) {
+        msg_length = 4;
+    } else if (protocol_id == 1) {
+        msg_length = 5;
+    } else if (protocol_id == 2) {
+        msg_length = 15;
     }
 
-    esp_deep_sleep(1000000); //Nos dormimos un segundo
-    //Volvemos al paso 1
-    // Cerrar el socket
-    close(sock);
+    char *packet = create_packet(&msg_id, &protocol_id, &transport_layer, &msg_length);
+    send(sock, packet, strlen(packet), 0);  
+
+  
+    rx_len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
+    if (rx_len < 0) {
+        ESP_LOGE(TAG, "Error receiving data");
+        free_packet(packet);  
+        close(sock);
+        return;
+    }
+    rx_buffer[rx_len] = '\0'; 
+    ESP_LOGI(TAG, "Received data: %s", rx_buffer);
+
+    free_packet(packet);  
+    close(sock);    
+    esp_deep_sleep(1000000);
 }
-
 
 
 void app_main(void){
-    nvs_init();
-    wifi_init_sta(WIFI_SSID, WIFI_PASSWORD);
-    ESP_LOGI(TAG,"Conectado a WiFi!\n"); 
-    char* msg = "hola mundo!"; 
-    socket_tcp(msg);
+    while (true) {
+        nvs_init();
+        wifi_init_sta(WIFI_SSID, WIFI_PASSWORD);
+        ESP_LOGI(TAG,"Conectado a WiFi!\n"); 
+        socket_tcp();
+    }
 }
+
