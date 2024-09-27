@@ -1,7 +1,4 @@
-from peewee import Model, PostgresqlDatabase, CharField
-
-# Tabla con los tipos de fields que hay en peewee
-# https://docs.peewee-orm.com/en/latest/peewee/models.html#fields
+from peewee import Model, PostgresqlDatabase, ForeignKeyField, AutoField, IntegerField, FloatField, CharField
 
 # Configuracion de la base de datos
 db_config = {
@@ -16,10 +13,12 @@ db = PostgresqlDatabase(**db_config)
 class BaseModel(Model):
     class Meta:
         database = db
+# Se definen los modelos
+# Tabla Dev: Almacena los dispositivos con los que ha tenido contacto
+class Dev(BaseModel):
+    device_mac = CharField(unique=True, max_length=12)  # 6 bytes en formato hex (12 caracteres)
 
-# Se definen los modelos        
-class User(BaseModel):
-    username = CharField()
+
 
 # Se crean las tablas
-db.create_tables([User])
+db.create_tables([Dev])
