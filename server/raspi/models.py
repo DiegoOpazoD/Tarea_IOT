@@ -64,9 +64,10 @@ class Conf(BaseModel):
     protocol = CharField()                                # Protocolo utilizado (por ejemplo, "TCP", "UDP")
     transport_layer = CharField()                         # Capa de transporte asociada
 
-
+class ConfActiva(BaseModel):
+    id_conf_activa = IntegerField()
 
 
 
 # Se crean las tablas
-db.create_tables([Dev,Log,Data,Conf])
+db.create_tables([Dev,Log,Data,Conf,ConfActiva])
