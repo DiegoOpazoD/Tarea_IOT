@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h> 
 #include <string.h>
 
 
@@ -6,6 +7,7 @@
 #include "esp_log.h"
 #include "esp_system.h"
 #include "esp_wifi.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "lwip/err.h"
@@ -26,6 +28,99 @@
 static const char* TAG = "WIFI";
 static int s_retry_num = 0;
 static EventGroupHandle_t s_wifi_event_group;
+
+/**
+ * Falta: 
+ * - Ver el tema de meoria que me comentó Diego
+ * 
+ * Aprox: 2 horas.
+ */
+
+int rand_int(int lower_bound, int upper_bound){
+    int value = rand() % (upper_bound - lower_bound + 1) + lower_bound; 
+    return value;
+}
+
+
+float rand_float( float lower_bound, float upper_bound ){
+    float scale = rand() / (float) RAND_MAX; 
+    return lower_bound + scale * ( upper_bound - lower_bound );      
+}
+
+
+void get_mac(uint8_t* baseMac){
+    esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
+}
+
+
+char* create_header(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_layer, uint16_t* msg_length){
+    char* res = (char*)malloc(12 * sizeof(char));
+
+    uint8_t baseMac[6];
+    get_mac(baseMac);
+    memcpy(res, baseMac, 6);
+    memcpy(res + 6, msg_id, 2);
+    memcpy(res + 8, protocol_id, 1);
+    memcpy(res + 9, transport_layer, 1);
+    memcpy(res + 10, msg_length, 2); 
+
+    return res;
+}
+
+
+char* create_packet(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_layer, uint16_t* msg_length){
+    uint8_t packet = *protocol_id;
+    char* header = create_header(msg_id, protocol_id, transport_layer, msg_length);
+    uint64_t time = esp_timer_get_time();
+
+    if(packet == 0){
+        char* packet = (char*)malloc(16 * sizeof(char));
+
+        memcpy(packet, header, 12);
+        free_packet(header);
+
+        memcpy(packet + 12, &time, 4);
+    }
+
+    uint8_t batt_level = create_random_int(1,100);
+
+    else if(packet == 1){
+
+        char* packet = (char*)malloc(17 * sizeof(char));
+
+        memcpy(packet, header, 12);
+        free_packet(header);
+
+        memcpy(packet + 12, &time, 4);
+        memcpy(packet + 16, batt_level, 1);
+    }
+
+    else if(packet == 2){
+        uint8_t temp = rand_int(5,30);
+        uint64_t press = rand_int(1000, 1200); 
+        uint8_t hum = rand_int(30, 80);
+        float co = rand_float(30.0f, 200.0f);
+
+        char* packet = (char*)malloc(27 * sizeof(char));
+
+        memcpy(packet, header, 12);
+        free_packet(header);
+
+        memcpy(packet + 12, &time, 4);
+        memcpy(packet + 16, batt_level, 1);
+        memcpy(packet + 17, temp, 1);
+        memcpy(packet + 18, press, 4);
+        memcpy(packet + 22, hum, 1);
+        memcpy(packet + 23, co, 4);
+    }
+
+    return packet;
+}
+
+
+void free_packet(char* packet){
+    free(packet);
+}
 
 
 void event_handler(void* arg, esp_event_base_t event_base,
@@ -49,6 +144,7 @@ void event_handler(void* arg, esp_event_base_t event_base,
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     }
 }
+
 
 void wifi_init_sta(char* ssid, char* password) {
     s_wifi_event_group = xEventGroupCreate();
@@ -104,6 +200,7 @@ void wifi_init_sta(char* ssid, char* password) {
     vEventGroupDelete(s_wifi_event_group);
 }
 
+
 void nvs_init() {
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES ||
@@ -121,42 +218,82 @@ void socket_tcp(){
     server_addr.sin_port = htons(SERVER_PORT);
     inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr.s_addr);
 
-    // Crear un socket
     int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock < 0) {
-        ESP_LOGE(TAG, "Error al crear el socket");
+        ESP_LOGE(TAG, "Error creating socket");
         return;
     }
 
-    // Conectar al servidor
     if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
-        ESP_LOGE(TAG, "Error al conectar");
+        ESP_LOGE(TAG, "Error connecting to the server");
         close(sock);
         return;
     }
 
-    // Enviar mensaje "Hola Mundo"
-    send(sock, "hola mundo", strlen("hola mundo"), 0);
-
-    // Recibir respuesta
+    char *msg = "Hi!";
+    send(sock, msg, strlen(msg), 0);
 
     char rx_buffer[128];
     int rx_len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
     if (rx_len < 0) {
-        ESP_LOGE(TAG, "Error al recibir datos");
+        ESP_LOGE(TAG, "Error receiving data");
+        close(sock);
         return;
     }
-    ESP_LOGI(TAG, "Datos recibidos: %s", rx_buffer);
-    
-    // Cerrar el socket
-    close(sock);
-}
+    rx_buffer[rx_len] = '\0'; 
+    ESP_LOGI(TAG, "Received data: %s", rx_buffer);
 
+    msg = "Active config pls.";
+    send(sock, msg, strlen(msg), 0);
+
+    rx_len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
+    if (rx_len < 0) {
+        ESP_LOGE(TAG, "Error receiving data");
+        close(sock);
+        return;
+    }
+    rx_buffer[rx_len] = '\0';
+
+    // Extract fields from received data
+    uint16_t msg_id = *(uint16_t*)(rx_buffer);
+    uint8_t protocol_id = *(uint8_t*)(rx_buffer + 2);
+    uint8_t transport_layer = 0;
+    uint16_t msg_length;
+
+    if (protocol_id == 0) {
+        msg_length = 4;
+    } else if (protocol_id == 1) {
+        msg_length = 5;
+    } else if (protocol_id == 2) {
+        msg_length = 15;
+    }
+
+    char *packet = create_packet(&msg_id, &protocol_id, &transport_layer, &msg_length);
+    send(sock, packet, strlen(packet), 0);  
+
+  
+    rx_len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
+    if (rx_len < 0) {
+        ESP_LOGE(TAG, "Error receiving data");
+        free_packet(packet);  
+        close(sock);
+        return;
+    }
+    rx_buffer[rx_len] = '\0'; 
+    ESP_LOGI(TAG, "Received data: %s", rx_buffer);
+
+    free_packet(packet);  
+    close(sock);    
+    esp_deep_sleep(1000000);
+}
 
 
 void app_main(void){
-    nvs_init();
-    wifi_init_sta(WIFI_SSID, WIFI_PASSWORD);
-    ESP_LOGI(TAG,"Conectado a WiFi!\n");
-    socket_tcp();
+    while (true) {
+        nvs_init();
+        wifi_init_sta(WIFI_SSID, WIFI_PASSWORD);
+        ESP_LOGI(TAG,"Conectado a WiFi!\n"); 
+        socket_tcp();
+    }
 }
+
