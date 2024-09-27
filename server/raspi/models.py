@@ -1,5 +1,8 @@
 from peewee import Model, PostgresqlDatabase, ForeignKeyField, AutoField, IntegerField, FloatField, CharField
 
+# Tabla con los tipos de fields que hay en peewee
+# https://docs.peewee-orm.com/en/latest/peewee/models.html#fields
+
 # Configuracion de la base de datos
 db_config = {
     'host': 'localhost',
@@ -13,6 +16,7 @@ db = PostgresqlDatabase(**db_config)
 class BaseModel(Model):
     class Meta:
         database = db
+
 # Se definen los modelos
 # Tabla Dev: Almacena los dispositivos con los que ha tenido contacto
 class Dev(BaseModel):
@@ -64,6 +68,7 @@ class Conf(BaseModel):
     protocol = CharField()                                # Protocolo utilizado (por ejemplo, "TCP", "UDP")
     transport_layer = CharField()                         # Capa de transporte asociada
 
+#Tabla ConfActiva , guarda el id de configuracion que se esta usando en la comunicacion actualmente
 class ConfActiva(BaseModel):
     id_conf_activa = IntegerField()
 
