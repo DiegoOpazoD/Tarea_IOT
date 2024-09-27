@@ -14,6 +14,11 @@ def insert_conf(protocol, transport_layer):
         protocol=protocol,
         transport_layer=transport_layer
     ).execute()
+def insert_conf_activa(id_conf):
+    Conf.insert(
+        id_conf_activa=id_conf,
+    ).execute()
+    
 
 def populate_conf():
     # Definir los posibles transport layers
@@ -30,4 +35,6 @@ if __name__ == "__main__":
     # Llenar la tabla Conf con todos los pares posibles
     populate_conf()
     print("Tabla Conf llenada con éxito")
+    insert_conf_activa(1)
+    print("seteada conf_activa a id 1 (tcp , P0)")
     
