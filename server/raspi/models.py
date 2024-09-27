@@ -28,6 +28,7 @@ class Log(BaseModel):
     protocol_id = IntegerField()                          # Protocolo (1 byte)
     transport_layer = IntegerField()                      # Capa de transporte (1 byte)
     length = IntegerField()                               # Longitud del mensaje (2 bytes)
+
 # Tabla Data: Almacena la data obtenida por la RasPi
 class Data(BaseModel):
     fk_packet_id = ForeignKeyField(Log, backref='data')   # Llave foránea que referencia a Log (packet_id)
@@ -57,9 +58,15 @@ class Data(BaseModel):
     gyr_x = FloatField(null=True)                         # Giroscopio en X (8000 bytes)
     gyr_y = FloatField(null=True)                         # Giroscopio en Y (8000 bytes)
     gyr_z = FloatField(null=True)                         # Giroscopio en Z (8000 bytes)
+    
+# Tabla Conf: Almacena las configuraciones disponibles
+class Conf(BaseModel):
+    protocol = CharField()                                # Protocolo utilizado (por ejemplo, "TCP", "UDP")
+    transport_layer = CharField()                         # Capa de transporte asociada
+
 
 
 
 
 # Se crean las tablas
-db.create_tables([Dev,Log,Data])
+db.create_tables([Dev,Log,Data,Conf])
