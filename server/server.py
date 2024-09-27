@@ -148,7 +148,7 @@ def guardar_log(device_id, msg_id, protocol_id, transport_layer, length, conexio
             print("Cursor cerrado.")
 
 #Funcion para guardar los datos recibidos de un mensaje para la tabla data
-def guardar_datos_db(packet_id, data, conexion_db):
+def guardar_datos_db(conexion_db,packet_id, data ):
     cursor = None
     try:
         cursor = conexion_db.cursor()
@@ -191,7 +191,6 @@ def guardar_datos_db(packet_id, data, conexion_db):
             );
         """
         
-        # Ejecutar la consulta con los valores individuales obtenidos del diccionario
         cursor.execute(query, (
             packet_id,
             timestamp, batt_level, temp, pres, hum, co,
@@ -285,12 +284,13 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 
                         ############################################### hasta aca esta funcionando ####################################
 
-                    data = obtener_mensaje_datos(conn)
+                    mensaje_datos = obtener_mensaje_datos(conn)
                     #parse paquete y obtener header y body con los datos
+                    data = parse(mensaje_datos)
                     device_id = guardar_dispositivo(mac_address,conexion_db) #guardo el dispositivo con el que estoy recibiendo datos en Dev
                     #device_id identifica el dispositivo que me esta mandando datos y es llave foranea en log
                     packet_id = guardar_log(device_id,msg_id,protocol_id,transport_layer,length,conexion_db) #guardo en log el mensaje que recibi
-                    guardar_datos_db(packet_id,protocol_id)
+                    guardar_datos_db(conexion_db,packet_id,data)
 
         except Exception as e:
                 print(f"Error durante la conexión: {e}")
