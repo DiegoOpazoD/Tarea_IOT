@@ -148,8 +148,75 @@ def guardar_log(device_id, msg_id, protocol_id, transport_layer, length, conexio
             print("Cursor cerrado.")
 
 #Funcion para guardar los datos recibidos de un mensaje para la tabla data
-def guardar_datos_db(packet_id):
-    return
+def guardar_datos_db(packet_id, data, conexion_db):
+    cursor = None
+    try:
+        cursor = conexion_db.cursor()
+        
+        timestamp = data.get('timestamp', None)
+        batt_level = data.get('batt_level', None)
+        temp = data.get('temp', None)
+        pres = data.get('pres', None)
+        hum = data.get('hum', None)
+        co = data.get('co', None)
+        
+        amp_x = data.get('amp_x', None)
+        amp_y = data.get('amp_y', None)
+        amp_z = data.get('amp_z', None)
+        
+        fre_x = data.get('fre_x', None)
+        fre_y = data.get('fre_y', None)
+        fre_z = data.get('fre_z', None)
+        
+        rms = data.get('rms', None)
+        
+        acc_x = data.get('acc_x', None)
+        acc_y = data.get('acc_y', None)
+        acc_z = data.get('acc_z', None)
+        
+        gyr_x = data.get('gyr_x', None)
+        gyr_y = data.get('gyr_y', None)
+        gyr_z = data.get('gyr_z', None)
+        
+        # Definir la consulta SQL para insertar los datos en la tabla Data
+        query = """
+            INSERT INTO Data (
+                fk_packet_id, timestamp, batt_level, temp, pres, hum, co,
+                amp_x, amp_y, amp_z, fre_x, fre_y, fre_z, rms,
+                acc_x, acc_y, acc_z, gyr_x, gyr_y, gyr_z
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s
+            );
+        """
+        
+        # Ejecutar la consulta con los valores individuales obtenidos del diccionario
+        cursor.execute(query, (
+            packet_id,
+            timestamp, batt_level, temp, pres, hum, co,
+            amp_x, amp_y, amp_z, fre_x, fre_y, fre_z, rms,
+            acc_x, acc_y, acc_z, gyr_x, gyr_y, gyr_z
+        ))
+        
+        # Confirmar los cambios
+        conexion_db.commit()
+        
+        print(f"Datos guardados exitosamente para el packet_id: {packet_id}")
+        return True
+    
+    except Exception as e:
+        print(f"Error al guardar los datos: {e}")
+        if conexion_db:
+            conexion_db.rollback()  # Deshacer cambios en caso de error
+        return False
+    
+    finally:
+        if cursor:
+            cursor.close()
+            print("Cursor cerrado.")
+
+
 
 #funcion para enviar la configuracion de vuelta a una esp conectada
 def enviar_configuracion(conn, configuracion):
