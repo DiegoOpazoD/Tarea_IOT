@@ -230,7 +230,7 @@ void socket_tcp(){
         return;
     }
 
-    char *msg = "Hi!";
+    char * msg = "Active config pls.";
     send(sock, msg, strlen(msg), 0);
 
     char rx_buffer[128];
@@ -242,17 +242,6 @@ void socket_tcp(){
     }
     rx_buffer[rx_len] = '\0'; 
     ESP_LOGI(TAG, "Received data: %s", rx_buffer);
-
-    msg = "Active config pls.";
-    send(sock, msg, strlen(msg), 0);
-
-    rx_len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
-    if (rx_len < 0) {
-        ESP_LOGE(TAG, "Error receiving data");
-        close(sock);
-        return;
-    }
-    rx_buffer[rx_len] = '\0';
 
     // Extract fields from received data
     uint16_t msg_id = *(uint16_t*)(rx_buffer);
