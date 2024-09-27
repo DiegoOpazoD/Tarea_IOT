@@ -15,7 +15,7 @@ def insert_conf(protocol, transport_layer):
         transport_layer=transport_layer
     ).execute()
 def insert_conf_activa(id_conf):
-    Conf.insert(
+    ConfActiva.insert(
         id_conf_activa=id_conf,
     ).execute()
     
