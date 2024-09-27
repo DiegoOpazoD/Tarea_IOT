@@ -41,14 +41,36 @@ def desconectar_db(conexion, cursor=None):
         conexion.close()
         print("Conexión a la base de datos cerrada.")
 
-#Funcion para obtener desde la base de datos el protocolo y la capa de transporte
-def obtener_protocolo(conexion_db,id_conf):
+#Funcion para obtener desde la base de datos la id de configuracion para la siguiente iteracion
+def obtener_id_conf_activa(conexion_db):
     cursor = None
     try:
         cursor = conexion_db.cursor()
-        cursor.execute("SELECT protocolo, capa_transporte FROM Conf WHERE id = %s;", (id_conf,))
-        configuracion = cursor.fetchone()
+        cursor.execute("SELECT id_conf_activa FROM ConfActiva;")
+        resultado = cursor.fetchone()
         
+        if resultado:
+            print(f"Configuracion activa obtenida con id: {resultado[0]}")
+            return resultado[0]  # Retorna el primer elemento de la tupla, que es el id_conf_activa
+        else:
+            print("No se encontró configuración activa.")
+            return None
+    except Exception as e:
+        print(f"Error durante la consulta: {e}")
+        return None
+    finally:
+        if cursor:
+            cursor.close()
+            print("Cursor cerrado.")
+
+#Funcion para obtener desde la base de datos el protocolo y la capa de transporte
+def obtener_protocolo(conexion_db,id_conf):
+    cursor = None
+
+    try:
+        cursor = conexion_db.cursor()
+        cursor.execute("SELECT protocol, transport_layer FROM Conf WHERE id = %s;", (id_conf,))
+        configuracion = cursor.fetchone()
         if configuracion:
             return configuracion
         else:
@@ -135,7 +157,7 @@ def enviar_configuracion(conn, configuracion):
     
     #lo dejo mientras solo separa como protocolo,capa_transporte
     mensaje = f"{protocolo} , {capa_transporte}"
-    
+    print(f"enviando mensaje configuracion : {mensaje}")
     # Envía el mensaje codificado en UTF-8
     conn.sendall(mensaje.encode('utf-8'))
     
@@ -184,15 +206,18 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 
                     #parse paquete y entender que es, por ahora lo dejo como siempre solicita la configuracion
                     solicita_config = True
-                    
-                    id_conf = 1
+                    id_conf = obtener_id_conf_activa(conexion_db)
                     configuracion = obtener_protocolo(conexion_db,id_conf)
                     if configuracion:
-                        enviar_configuracion(configuracion,conn)
-                        
+                        print(f"obtuve configuracion: {configuracion}")
+                        print("enviando mensaje con configuracion a cliente")
+                        enviar_configuracion(conn,configuracion)
                     else:
                         print("No tengo los datos para responder, espero otro intento de comunicacion")
                         continue
+
+                        ############################################### hasta aca esta funcionando ####################################
+
                     data = obtener_mensaje_datos(conn)
                     #parse paquete y obtener header y body con los datos
                     device_id = guardar_dispositivo(mac_address,conexion_db) #guardo el dispositivo con el que estoy recibiendo datos en Dev
