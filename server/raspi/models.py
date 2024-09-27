@@ -28,8 +28,38 @@ class Log(BaseModel):
     protocol_id = IntegerField()                          # Protocolo (1 byte)
     transport_layer = IntegerField()                      # Capa de transporte (1 byte)
     length = IntegerField()                               # Longitud del mensaje (2 bytes)
+# Tabla Data: Almacena la data obtenida por la RasPi
+class Data(BaseModel):
+    fk_packet_id = ForeignKeyField(Log, backref='data')   # Llave foránea que referencia a Log (packet_id)
+    
+    # Columnas de datos (sin restricciones)
+    timestamp = IntegerField(null=True)                   # Marca de tiempo (4 bytes)
+    batt_level = IntegerField(null=True)                  # Nivel de batería (1 byte)
+    temp = IntegerField(null=True)                        # Temperatura (1 byte)
+    pres = IntegerField(null=True)                        # Presión (4 bytes)
+    hum = IntegerField(null=True)                         # Humedad (1 byte)
+    co = FloatField(null=True)                            # CO (4 bytes)
+    
+    amp_x = FloatField(null=True)                         # Aceleración en X (4 bytes)
+    amp_y = FloatField(null=True)                         # Aceleración en Y (4 bytes)
+    amp_z = FloatField(null=True)                         # Aceleración en Z (4 bytes)
+    
+    fre_x = FloatField(null=True)                         # Frecuencia en X (4 bytes)
+    fre_y = FloatField(null=True)                         # Frecuencia en Y (4 bytes)
+    fre_z = FloatField(null=True)                         # Frecuencia en Z (4 bytes)
+    
+    rms = FloatField(null=True)                           # Valor RMS (4 bytes)
+    
+    acc_x = FloatField(null=True)                         # Aceleración en X (8000 bytes)
+    acc_y = FloatField(null=True)                         # Aceleración en Y (8000 bytes)
+    acc_z = FloatField(null=True)                         # Aceleración en Z (8000 bytes)
+    
+    gyr_x = FloatField(null=True)                         # Giroscopio en X (8000 bytes)
+    gyr_y = FloatField(null=True)                         # Giroscopio en Y (8000 bytes)
+    gyr_z = FloatField(null=True)                         # Giroscopio en Z (8000 bytes)
+
 
 
 
 # Se crean las tablas
-db.create_tables([Dev,Log])
+db.create_tables([Dev,Log,Data])
