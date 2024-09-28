@@ -323,7 +323,7 @@ def parse_body(body,protocol_id):
         datos['temperature'] = struct.unpack('<B', temp)[0]      # Desempaquetamos como uint8
         datos['pressure'] = struct.unpack('<I', press)[0]       # Desempaquetamos como uint32 
         datos['humidity'] = struct.unpack('<B', hum)[0]          # Desempaquetamos como uint8
-        datos['CO'] = struct.unpack('<I', co)[0]                 # Desempaquetamos como uint32 
+        datos['CO'] = struct.unpack('<f', co)[0]                 # Desempaquetamos como uint32 
     return datos
 
     ##otros protocolos aca
