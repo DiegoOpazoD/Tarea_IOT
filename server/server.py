@@ -82,7 +82,7 @@ def obtener_last_msg_id(connexion_db):
         
         if resultado:
             print(f"ultima msg_id obtenido: {resultado[0]+1}")
-            return resultado[0]  # Retorna el primer elemento de la tupla, que es el id_conf_activa
+            return resultado[0]+1  # Retorna el primer elemento de la tupla, que es el id_conf_activa
         else:
             print("No se encontró msg_id.")
             return 0
