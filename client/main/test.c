@@ -8,6 +8,7 @@
 #include "esp_system.h"
 #include "esp_wifi.h"
 #include "esp_timer.h"
+#include "esp_sleep.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "lwip/err.h"
@@ -17,10 +18,10 @@
 
 //Credenciales de WiFi
 
-#define WIFI_SSID "SSID"
-#define WIFI_PASSWORD "PASSOWRD"
-#define SERVER_IP     "192.168.0.1" // IP del servidor
-#define SERVER_PORT   1234
+#define WIFI_SSID  "cc5326"
+#define WIFI_PASSWORD "cc532624"
+#define SERVER_IP     "10.20.1.1"//"192.168.0.1" // IP del servidor
+#define SERVER_PORT   1236
 
 // Variables de WiFi
 #define WIFI_CONNECTED_BIT BIT0
@@ -28,13 +29,6 @@
 static const char* TAG = "WIFI";
 static int s_retry_num = 0;
 static EventGroupHandle_t s_wifi_event_group;
-
-/**
- * Falta: 
- * - Ver el tema de meoria que me comentó Diego
- * 
- * Aprox: 2 horas.
- */
 
 int rand_int(int lower_bound, int upper_bound){
     int value = rand() % (upper_bound - lower_bound + 1) + lower_bound; 
@@ -48,10 +42,20 @@ float rand_float( float lower_bound, float upper_bound ){
 }
 
 
-void get_mac(uint8_t* baseMac){
-    esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
+void get_mac(uint8_t* baseMac) {
+    esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, baseMac);
+    if (ret == ESP_OK) {
+        printf("%02x:%02x:%02x:%02x:%02x:%02x\n",
+                    baseMac[0], baseMac[1], baseMac[2],
+                    baseMac[3], baseMac[4], baseMac[5]);
+    } else {
+        printf("Failed to read MAC address");
+    }
 }
 
+void free_packet(char* packet){
+    free(packet);
+}
 
 char* create_header(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_layer, uint16_t* msg_length){
     char* res = (char*)malloc(12 * sizeof(char));
@@ -69,58 +73,56 @@ char* create_header(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_l
 
 
 char* create_packet(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_layer, uint16_t* msg_length){
-    uint8_t packet = *protocol_id;
+    uint8_t protocol_packet = *protocol_id;
     char* header = create_header(msg_id, protocol_id, transport_layer, msg_length);
     uint64_t time = esp_timer_get_time();
+    uint32_t truncated_time = (uint32_t)(time & 0xFFFFFFFF);
+    ESP_LOGI(TAG, "time %" PRIu32 "\n", truncated_time);
+    uint8_t batt_level = rand_int(1,100);
+    char* packet = NULL;
 
-    if(packet == 0){
-        char* packet = (char*)malloc(16 * sizeof(char));
-
-        memcpy(packet, header, 12);
-        free_packet(header);
-
-        memcpy(packet + 12, &time, 4);
-    }
-
-    uint8_t batt_level = create_random_int(1,100);
-
-    else if(packet == 1){
-
-        char* packet = (char*)malloc(17 * sizeof(char));
+    if(protocol_packet == 0){
+        packet = (char*)malloc(16 * sizeof(char));
 
         memcpy(packet, header, 12);
         free_packet(header);
 
-        memcpy(packet + 12, &time, 4);
-        memcpy(packet + 16, batt_level, 1);
+        memcpy(packet + 12, &truncated_time, 4);
     }
+    else if(protocol_packet == 1){
 
-    else if(packet == 2){
+        packet = (char*)malloc(17 * sizeof(char));
+
+        memcpy(packet, header, 12);
+        free_packet(header);
+
+        memcpy(packet + 12, &truncated_time, 4);
+        memcpy(packet + 16, &batt_level, 1);
+    }
+    else if(protocol_packet == 2){
         uint8_t temp = rand_int(5,30);
-        uint64_t press = rand_int(1000, 1200); 
+        uint32_t press = rand_int(1000, 1200); 
         uint8_t hum = rand_int(30, 80);
         float co = rand_float(30.0f, 200.0f);
 
-        char* packet = (char*)malloc(27 * sizeof(char));
+        packet = (char*)malloc(27 * sizeof(char));
 
         memcpy(packet, header, 12);
         free_packet(header);
 
-        memcpy(packet + 12, &time, 4);
-        memcpy(packet + 16, batt_level, 1);
-        memcpy(packet + 17, temp, 1);
-        memcpy(packet + 18, press, 4);
-        memcpy(packet + 22, hum, 1);
-        memcpy(packet + 23, co, 4);
+        memcpy(packet + 12, &truncated_time, 4);
+        memcpy(packet + 16, &batt_level, 1);
+        memcpy(packet + 17, &temp, 1);
+        memcpy(packet + 18, &press, 4);
+        memcpy(packet + 22, &hum, 1);
+        memcpy(packet + 23, &co, 4);
     }
 
     return packet;
 }
 
 
-void free_packet(char* packet){
-    free(packet);
-}
+
 
 
 void event_handler(void* arg, esp_event_base_t event_base,
@@ -244,10 +246,15 @@ void socket_tcp(){
     ESP_LOGI(TAG, "Received data: %s", rx_buffer);
 
     // Extract fields from received data
-    uint16_t msg_id = *(uint16_t*)(rx_buffer);
-    uint8_t protocol_id = *(uint8_t*)(rx_buffer + 2);
+    uint16_t msg_id = (uint16_t*) (rx_buffer[0]-'0'); //solucion temporal
+    uint8_t protocol_id = (uint8_t*) (rx_buffer[2]-'0');
+    //uint16_t msg_id = *(uint16_t*)(rx_buffer); 
+    //uint8_t protocol_id = *(uint8_t*)(rx_buffer + 2);
     uint8_t transport_layer = 0;
     uint16_t msg_length;
+
+    ESP_LOGI(TAG, "msg_id %u\n", msg_id);
+    ESP_LOGI(TAG, "protocolo_id %u\n", protocol_id);
 
     if (protocol_id == 0) {
         msg_length = 4;
@@ -258,8 +265,10 @@ void socket_tcp(){
     }
 
     char *packet = create_packet(&msg_id, &protocol_id, &transport_layer, &msg_length);
-    send(sock, packet, strlen(packet), 0);  
 
+    send(sock, packet, msg_length+12, 0);  
+
+    ESP_LOGI(TAG, "se mando el mensaje\n");
   
     rx_len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
     if (rx_len < 0) {
@@ -273,7 +282,9 @@ void socket_tcp(){
 
     free_packet(packet);  
     close(sock);    
-    esp_deep_sleep(1000000);
+    esp_sleep_enable_timer_wakeup(1000000); 
+
+    esp_deep_sleep_start();
 }
 
 
