@@ -4,18 +4,9 @@ import time
 from include.db_utils import *
 from include.parser import * 
 
-## para struct 
-# El formato '>I H B' significa:
-# - '>': Big-endian (si es little-endian usar '<')
-# - 'I': Unsigned int de 32 bits (4 bytes)
-# - 'H': Unsigned short de 16 bits (2 bytes)
-# - 'B': Unsigned char de 8 bits (1 byte)
-
-
 
 HOST = '0.0.0.0'  # Escucha en todas las interfaces disponibles
 PORT = 1236      # Puerto en el que se escucha
-
 
     
 conexion_db = conectar_db()
@@ -24,16 +15,6 @@ while not conexion_db:
     time.sleep(3)
     conexion_db = conectar_db()
 
-## para struct 
-# El formato '>I H B' significa:
-# - '>': Big-endian (si es little-endian usar '<')
-# - 'I': Unsigned int de 32 bits (4 bytes)
-# - 'H': Unsigned short de 16 bits (2 bytes)
-# - 'B': Unsigned char de 8 bits (1 byte)
-
-#test_mensaje = b'\x84\xcc\xa8_!\x88\x01'
-#parseado = parse(test_mensaje)
-#print(parseado)
 
 # Crea un socket para IPv4 y conexión TCP
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
