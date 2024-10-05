@@ -1,4 +1,5 @@
 import struct
+from db_utils import *
  
 # Dentro de struct, el formato '>I H B' significa:
 # - '>': Big-endian (si es little-endian usar '<')
@@ -29,7 +30,22 @@ class ESP_MSG:
         self.body = parsed_data['body']
 
 
-    def parse_body(body, protocol_id) -> dict:
+    def __str__(self) -> str:
+        '''
+        Representación en formato string del mensaje.
+
+        Retorna un string con los siguientes datos:
+            - La dirección MAC de la placa ESP32 que envió el mensaje.
+            - El identificador del mensaje.
+            - El identificador del protocolo de comunicación.
+            - La capa de transporte utilizada.
+            - El tamaño del cuerpo del mensaje.
+            - El cuerpo del mensaje.
+        '''
+        return f"MAC: {self.mac_address}, Msg ID: {self.msg_id}, Protocol ID: {self.protocol_id}, Transport Layer: {self.transport_layer}, Length: {self.length}, Body: {self.body}"
+
+
+    def __parse_body__(body, protocol_id) -> dict:
         '''
         Función que parsea el body en funcióon del protocol_id que se está dando.
         '''
@@ -57,7 +73,7 @@ class ESP_MSG:
         return datos
         
 
-    def parse(self, mensaje) -> dict:
+    def __parse__(self, mensaje) -> dict:
         '''
         Función que parsea el mensaje recibido en un diccionario con sus atributos debidos.
         '''
@@ -81,3 +97,11 @@ class ESP_MSG:
             'body': self.parse_body(body,protocol_id_decodificado),
         }
         return dicc_data
+    
+    def save_on_db(self, conexion_db):
+        '''
+        Función que guarda los datos dentro de la base de datos.
+        '''
+        device_id = guardar_dispositivo(self.mac_address,conexion_db)
+        packet_id = guardar_log(device_id, self.msg_id, self.protocol_id, self.transport_layer, self.length, conexion_db) 
+        guardar_datos_db(conexion_db, packet_id, self.body)
