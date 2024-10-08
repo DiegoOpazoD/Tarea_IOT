@@ -2,6 +2,7 @@
 #include <stdlib.h> 
 #include <string.h>
 #include <time.h>
+#include <math.h>
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_system.h"
@@ -29,18 +30,21 @@ static const char* TAG = "WIFI";
 static int s_retry_num = 0;
 static EventGroupHandle_t s_wifi_event_group;
 
-int rand_int(int lower_bound, int upper_bound){
-    int value = rand(time(NULL)) % (upper_bound - lower_bound + 1) + lower_bound; 
-    return value;
-}
 
+int rand_int(int lower_bound, int upper_bound){
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    srand((time_t)ts.tv_sec + (time_t)ts.tv_nsec);
+    return rand() % (upper_bound - lower_bound + 1) + lower_bound;
+}
 
 float rand_float( float lower_bound, float upper_bound ){
-    float scale = rand(time(NULL)) / (float) RAND_MAX; 
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    srand((time_t)ts.tv_sec + (time_t)ts.tv_nsec);
+    float scale = (float)rand() / (float)RAND_MAX; 
     return lower_bound + scale * ( upper_bound - lower_bound );      
 }
-
-
 void get_mac(uint8_t* baseMac) {
     esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, baseMac);
     if (ret == ESP_OK) {
@@ -116,7 +120,68 @@ char* create_packet(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_l
         memcpy(packet + 22, &hum, 1);
         memcpy(packet + 23, &co, 4);
     }
+    else if(protocol_packet == 3){
+        uint8_t temp = rand_int(5,30);
+        uint32_t press = rand_int(1000, 1200); 
+        uint8_t hum = rand_int(30, 80);
+        float co = rand_float(30.0f, 200.0f);
+        float amp_x = rand_float(0.0059f, 0.12f);
+        float amp_y = rand_float(0.0041f, 0.011f);
+        float amp_z = rand_float(0.008f, 0.15f);
+        float fre_x = rand_float(29.0f, 31.0f);
+        float fre_y = rand_float(59.0f, 61.0f);
+        float fre_z = rand_float(89.0f, 91.0f);
+        float rms = sqrtf(amp_x*amp_x+amp_y*amp_y+amp_z*amp_z);
 
+        packet = (char*)malloc(55 * sizeof(char));
+
+        memcpy(packet, header, 12);
+        free_packet(header);
+
+        memcpy(packet + 12, &truncated_time, 4);
+        memcpy(packet + 16, &batt_level, 1);
+        memcpy(packet + 17, &temp, 1);
+        memcpy(packet + 18, &press, 4);
+        memcpy(packet + 22, &hum, 1);
+        memcpy(packet + 23, &co, 4);
+        memcpy(packet + 27, &amp_x, 4);
+        memcpy(packet + 31, &amp_y, 4);
+        memcpy(packet + 35, &amp_z, 4);
+        memcpy(packet + 39, &fre_x, 4);
+        memcpy(packet + 43, &fre_y, 4);
+        memcpy(packet + 47, &fre_z, 4);
+        memcpy(packet + 51, &rms, 4);
+    }
+    else if(protocol_packet == 3){
+        uint8_t temp = rand_int(5,30);
+        uint32_t press = rand_int(1000, 1200); 
+        uint8_t hum = rand_int(30, 80);
+        float co = rand_float(30.0f, 200.0f);
+        float acc_x = rand_float(-16.0f, 16.0f);
+        float acc_y = rand_float(-16.0f, 16.0f);
+        float acc_z = rand_float(-16.0f, 16.0f);
+        float gyr_x = rand_float(-1000.0f, 1000.0f);
+        float gyr_y = rand_float(-1000.0f, 1000.0f);
+        float gyr_z = rand_float(-1000.0f, 1000.0f);
+
+        packet = (char*)malloc(51 * sizeof(char));
+
+        memcpy(packet, header, 12);
+        free_packet(header);
+
+        memcpy(packet + 12, &truncated_time, 4);
+        memcpy(packet + 16, &batt_level, 1);
+        memcpy(packet + 17, &temp, 1);
+        memcpy(packet + 18, &press, 4);
+        memcpy(packet + 22, &hum, 1);
+        memcpy(packet + 23, &co, 4);
+        memcpy(packet + 27, &acc_x, 4);
+        memcpy(packet + 31, &acc_y, 4);
+        memcpy(packet + 35, &acc_z, 4);
+        memcpy(packet + 39, &gyr_x, 4);
+        memcpy(packet + 43, &gyr_y, 4);
+        memcpy(packet + 47, &gyr_z, 4);
+    }
     return packet;
 }
 
