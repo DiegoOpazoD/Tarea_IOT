@@ -1,8 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h> 
 #include <string.h>
-
-
+#include <time.h>
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_system.h"
@@ -31,13 +30,13 @@ static int s_retry_num = 0;
 static EventGroupHandle_t s_wifi_event_group;
 
 int rand_int(int lower_bound, int upper_bound){
-    int value = rand() % (upper_bound - lower_bound + 1) + lower_bound; 
+    int value = rand(time(NULL)) % (upper_bound - lower_bound + 1) + lower_bound; 
     return value;
 }
 
 
 float rand_float( float lower_bound, float upper_bound ){
-    float scale = rand() / (float) RAND_MAX; 
+    float scale = rand(time(NULL)) / (float) RAND_MAX; 
     return lower_bound + scale * ( upper_bound - lower_bound );      
 }
 
