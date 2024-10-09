@@ -14,23 +14,15 @@
 #include "lwip/err.h"
 #include "lwip/sys.h"
 #include "nvs_flash.h"
-#include "lwip/sockets.h" // Para sockets
-
-//Credenciales de WiFi
-
-#define WIFI_SSID  "cc5326"
-#define WIFI_PASSWORD "cc532624"
-#define SERVER_IP     "10.20.1.1"//"192.168.0.1" // IP del servidor
-#define SERVER_PORT   1236
-
-// Variables de WiFi
-#define WIFI_CONNECTED_BIT BIT0
-#define WIFI_FAIL_BIT BIT1
-static const char* TAG = "WIFI";
-static int s_retry_num = 0;
-static EventGroupHandle_t s_wifi_event_group;
+#include "lwip/sockets.h" 
 
 
+////////////////////////////////////////////////////////////////////// PACKETS //////////////////////////////////////////////////////////////////////
+
+
+/**
+ * Function that generates a random integer based on lower and upper bounds.
+ */
 int rand_int(int lower_bound, int upper_bound){
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -38,6 +30,10 @@ int rand_int(int lower_bound, int upper_bound){
     return rand() % (upper_bound - lower_bound + 1) + lower_bound;
 }
 
+
+/**
+ * Function that generates a random float based on lower and upper bounds.
+ */
 float rand_float( float lower_bound, float upper_bound ){
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -45,6 +41,11 @@ float rand_float( float lower_bound, float upper_bound ){
     float scale = (float)rand() / (float)RAND_MAX; 
     return lower_bound + scale * ( upper_bound - lower_bound );      
 }
+
+
+/**
+ * Getter for the mac address on an ESP.
+ */
 void get_mac(uint8_t* baseMac) {
     esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, baseMac);
     if (ret == ESP_OK) {
@@ -56,10 +57,18 @@ void get_mac(uint8_t* baseMac) {
     }
 }
 
+
+/**
+ * Function that gets used to free a certain packet.
+ */
 void free_packet(char* packet){
     free(packet);
 }
 
+
+/**
+ * Function that facilitates the making of a header.
+ */
 char* create_header(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_layer, uint16_t* msg_length){
     char* res = (char*)malloc(12 * sizeof(char));
 
@@ -75,6 +84,9 @@ char* create_header(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_l
 }
 
 
+/**
+ * Function that creates a packet based in the protocol_id given.
+ */
 char* create_packet(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_layer, uint16_t* msg_length){
     uint8_t protocol_packet = *protocol_id;
     char* header = create_header(msg_id, protocol_id, transport_layer, msg_length);
@@ -187,8 +199,35 @@ char* create_packet(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_l
 
 
 
+////////////////////////////////////////////////////////////////////// WIFI //////////////////////////////////////////////////////////////////////
 
 
+//Credenciales de WiFi
+#define WIFI_SSID  "cc5326"
+#define WIFI_PASSWORD "cc532624"
+#define SERVER_IP     "10.20.1.1"
+#define SERVER_PORT   1236
+
+
+// Variables de WiFi
+#define WIFI_CONNECTED_BIT BIT0
+#define WIFI_FAIL_BIT BIT1
+static const char* TAG = "WIFI";
+static int s_retry_num = 0;
+static EventGroupHandle_t s_wifi_event_group;
+
+/**
+ * WiFi event handler
+ *
+ * This callback handles WiFi events, such as the start of
+ * the connection, disconnection and IP address setup on the
+ * network interface.
+ *
+ * @param arg      Additional information for the callback
+ * @param event_base   Event base
+ * @param event_id     Event identifier
+ * @param event_data   Additional event information
+ */
 void event_handler(void* arg, esp_event_base_t event_base,
                           int32_t event_id, void* event_data) {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
@@ -212,6 +251,15 @@ void event_handler(void* arg, esp_event_base_t event_base,
 }
 
 
+/**
+ * Initializes Wi-Fi in station mode
+ *
+ * Initializes Wi-Fi in station mode and connects to a Wi-Fi network
+ * with the given SSID and password.
+ *
+ * @param ssid   SSID of the Wi-Fi network
+ * @param password  Password of the Wi-Fi network
+ */
 void wifi_init_sta(char* ssid, char* password) {
     s_wifi_event_group = xEventGroupCreate();
 
@@ -267,6 +315,13 @@ void wifi_init_sta(char* ssid, char* password) {
 }
 
 
+/**
+ * @brief Initialize the Non-Volatile Storage (NVS)
+ *
+ * The first time NVS is used, the underlying flash storage must be
+ * partitioned. This function will erase the storage if it is not already
+ * partitioned, and then initialize the NVS.
+ */
 void nvs_init() {
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES ||
@@ -278,6 +333,15 @@ void nvs_init() {
 }
 
 
+/**
+ * @brief Create a TCP socket and connect to the server
+ * 
+ * This function creates a TCP socket, connects to the server, sends a message, receives a response, and then closes the socket.
+ * The message sent is a string "Active config pls." and the response received is a string with the configuration information.
+ * The configuration information is extracted from the response and a new packet is created with the extracted information.
+ * The new packet is then sent back to the server and the socket is closed.
+ * Finally, the device enters deep sleep for 1 second.
+ */
 void socket_tcp(){
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
@@ -309,11 +373,8 @@ void socket_tcp(){
     rx_buffer[rx_len] = '\0'; 
     ESP_LOGI(TAG, "Received data: %s", rx_buffer);
 
-    // Extract fields from received data
-    uint16_t msg_id = (uint16_t*) (rx_buffer[0]-'0'); //solucion temporal
+    uint16_t msg_id = (uint16_t*) (rx_buffer[0]-'0'); 
     uint8_t protocol_id = (uint8_t*) (rx_buffer[2]-'0');
-    //uint16_t msg_id = *(uint16_t*)(rx_buffer); 
-    //uint8_t protocol_id = *(uint8_t*)(rx_buffer + 2);
     uint8_t transport_layer = 0;
     uint16_t msg_length;
 
@@ -326,11 +387,15 @@ void socket_tcp(){
         msg_length = 5;
     } else if (protocol_id == 2) {
         msg_length = 15;
+    }else if (protocol_id == 3) {
+        msg_length = 43;
+    } else if (protocol_id == 4) {
+        msg_length = 39;
     }
 
     char *packet = create_packet(&msg_id, &protocol_id, &transport_layer, &msg_length);
 
-    send(sock, packet, msg_length+12, 0);  
+    send(sock, packet, msg_length + 12, 0);  
 
     ESP_LOGI(TAG, "se mando el mensaje\n");
   
@@ -350,6 +415,88 @@ void socket_tcp(){
 
     esp_deep_sleep_start();
 }
+
+
+/**
+ * @brief UDP socket to send and receive data to/from a server.
+ *
+ * This function creates a UDP socket to send and receive data to/from a server.
+ * It uses the server IP and port defined in the macros SERVER_IP and SERVER_PORT.
+ * It sends a message to the server, receives a message back and parses the message
+ * to extract the fields and creates a packet to send back to the server.
+ * Finally, it closes the socket and puts the chip to deep sleep.
+ */
+void socket_udp(){
+    struct sockaddr_in server_addr;
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(SERVER_PORT);
+    inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr.s_addr);
+
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+        ESP_LOGE(TAG, "Error creating socket");
+        return;
+    }
+
+    char * msg = "Active config pls.";
+    sendto(sock, msg, strlen(msg), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+
+    char rx_buffer[128];
+    socklen_t server_addr_len = sizeof(server_addr);
+    int rx_len = recvfrom(sock, rx_buffer, sizeof(rx_buffer) - 1, 0, (struct sockaddr *)&server_addr, &server_addr_len);
+    if (rx_len < 0) {
+        ESP_LOGE(TAG, "Error receiving data");
+        close(sock);
+        return;
+    }
+    rx_buffer[rx_len] = '\0'; 
+    ESP_LOGI(TAG, "Received data: %s", rx_buffer);
+
+    uint16_t msg_id = (uint16_t*) (rx_buffer[0]-'0'); 
+    uint8_t protocol_id = (uint8_t*) (rx_buffer[2]-'0');
+    uint8_t transport_layer = 0;
+    uint16_t msg_length;
+
+    ESP_LOGI(TAG, "msg_id %u\n", msg_id);
+    ESP_LOGI(TAG, "protocolo_id %u\n", protocol_id);
+
+    if (protocol_id == 0) {
+        msg_length = 4;
+    } else if (protocol_id == 1) {
+        msg_length = 5;
+    } else if (protocol_id == 2) {
+        msg_length = 15;
+    }else if (protocol_id == 3) {
+        msg_length = 43;
+    } else if (protocol_id == 4) {
+        msg_length = 39;
+    }
+
+    char *packet = create_packet(&msg_id, &protocol_id, &transport_layer, &msg_length);
+
+    sendto(sock, packet, msg_length+12, 0, (struct sockaddr *)&server_addr, server_addr_len);  
+
+    ESP_LOGI(TAG, "se mando el mensaje\n");
+  
+    rx_len = recvfrom(sock, rx_buffer, sizeof(rx_buffer) - 1, 0, (struct sockaddr *)&server_addr, &server_addr_len);
+    if (rx_len < 0) {
+        ESP_LOGE(TAG, "Error receiving data");
+        free_packet(packet);  
+        close(sock);
+        return;
+    }
+    rx_buffer[rx_len] = '\0'; 
+    ESP_LOGI(TAG, "Received data: %s", rx_buffer);
+
+    free_packet(packet);  
+    close(sock);    
+    esp_sleep_enable_timer_wakeup(1000000); 
+
+    esp_deep_sleep_start();
+}
+
+
+////////////////////////////////////////////////////////////////////// MAIN //////////////////////////////////////////////////////////////////////
 
 
 void app_main(void){
