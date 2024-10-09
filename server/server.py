@@ -3,11 +3,11 @@ import time
 
 from server.include.db_utils import *
 from server.include.esp_msg import * 
+from server.include.esp_connection import * 
 
 
 HOST = '0.0.0.0'  # Escucha en todas las interfaces disponibles
 PORT = 1236      # Puerto en el que se escucha
-
     
 conexion_db = conectar_db()
 while not conexion_db:
@@ -43,7 +43,14 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     else:
                         print("No tengo los datos para responder, espero otro intento de comunicacion")
                         continue
-
+                    capa_transporte , protocolo = configuracion
+                    if capa_transporte == "tcp":
+                        s_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    elif capa_transporte == "udp":
+                        s_udp = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+                        s_udp.bind((HOST,PORT))
+                        pass
+                    
                     mensaje_datos = obtener_mensaje_datos(conn)
                     print(f"Mensaje recibido sin cambiar nada : {mensaje_datos}")
 
