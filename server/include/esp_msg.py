@@ -68,8 +68,63 @@ class ESP_MSG:
             datos['temperature'] = struct.unpack('<B', temp)[0]      
             datos['pressure'] = struct.unpack('<I', press)[0]       
             datos['humidity'] = struct.unpack('<B', hum)[0]          
-            datos['CO'] = struct.unpack('<f', co)[0]                 
+            datos['CO'] = struct.unpack('<f', co)[0]
+        elif protocol_id = 3:
+            batt_level = body[4:5]
+            temp = body[5:6]
+            press = body[6:10]
+            hum  = body[10:11]
+            co = body[11:15]
+            amp_x = [15:19]
+            amp_y = [19:23]
+            amp_z = [23:27]
+            fre_x = [27:31]            
+            fre_y = [31:35]            
+            fre_z = [35:39]
+            rms = [39:43]
 
+            datos['batt_level'] = struct.unpack('<B', batt_level)[0]  
+            datos['temperature'] = struct.unpack('<B', temp)[0]      
+            datos['pressure'] = struct.unpack('<I', press)[0]       
+            datos['humidity'] = struct.unpack('<B', hum)[0]          
+            datos['CO'] = struct.unpack('<f', co)[0]
+            datos['amp_x'] = struct.unpack('<f', amp_x)[0]
+            datos['amp_y'] = struct.unpack('<f', amp_y)[0]
+            datos['amp_z'] = struct.unpack('<f', amp_z)[0]
+            datos['fre_x'] = struct.unpack('<f', fre_x)[0]
+            datos['fre_y'] = struct.unpack('<f', fre_y)[0]
+            datos['fre_z'] = struct.unpack('<f', fre_z)[0]
+            datos['rms'] = struct.unpack('<f', rms)[0]
+
+                             
+        elif protocol_id = 4:
+            batt_level = body[4:5]
+            temp = body[5:6]
+            press = body[6:10]
+            hum  = body[10:11]
+            co = body[11:15]
+            acc_x = body[15:8015]
+            acc_y = body[8015:16015]
+            acc_z = body[16015:24015]
+            gyr_x = body[24015:32015]
+            gyr_y = body[32015:40015]
+            gyr_z = body[40015:48015]
+            
+            datos['batt_level'] = struct.unpack('<B', batt_level)[0]  
+            datos['temperature'] = struct.unpack('<B', temp)[0]      
+            datos['pressure'] = struct.unpack('<I', press)[0]       
+            datos['humidity'] = struct.unpack('<B', hum)[0]          
+            datos['CO'] = struct.unpack('<f', co)[0]
+
+            ######### revisar aca el unpack de float* #################
+            datos['acc_x'] = struct.unpack('<f',acc_x)[0]
+            datos['acc_y'] = struct.unpack('<f',acc_y)[0]
+            datos['acc_z'] = struct.unpack('<f',acc_z)[0]
+            datos['gyr_x'] = struct.unpack('<f',gyr_x)[0]
+            datos['gyr_y'] = struct.unpack('<f',gyr_y)[0]
+            datos['gyr_z'] = struct.unpack('<f',gyr_z)[0]
+
+            
         return datos
         
 

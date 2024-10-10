@@ -44,14 +44,8 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                         print("No tengo los datos para responder, espero otro intento de comunicacion")
                         continue
                     capa_transporte , protocolo = configuracion
-                    if capa_transporte == "tcp":
-                        s_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    elif capa_transporte == "udp":
-                        s_udp = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-                        s_udp.bind((HOST,PORT))
-                        pass
-                    
-                    mensaje_datos = obtener_mensaje_datos(conn)
+                    conexion_esp = ESP_CONN(capa_transporte,None)
+                    mensaje_datos = conexion_esp.obtener_mensaje_datos()
                     print(f"Mensaje recibido sin cambiar nada : {mensaje_datos}")
 
                     msg = ESP_MSG(mensaje_datos)
