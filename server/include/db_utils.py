@@ -296,7 +296,7 @@ def enviar_configuracion(conn, configuracion,conexion_db):
     print(f"Configuración enviada: {mensaje}")
 
 
-def obtener_mensaje_datos(conn):
+def obtener_mensaje_datos(conn,transport_layer):
     '''
     Función para recibir el mensaje con los datos dados,
     '''
