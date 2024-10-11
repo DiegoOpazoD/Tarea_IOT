@@ -80,7 +80,7 @@ def obtener_last_msg_id(conexion_db):
     cursor = None
     try:
         cursor = conexion_db.cursor()
-        cursor.execute("SELECT msg_id FROM log order by msg_id ASC;")
+        cursor.execute("SELECT msg_id FROM log order by msg_id DESC;")
         resultado = cursor.fetchone()
         
         if resultado:

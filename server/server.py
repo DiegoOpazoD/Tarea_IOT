@@ -15,7 +15,6 @@ while not conexion_db:
     time.sleep(3)
     conexion_db = conectar_db()
 
-
 # Crea un socket para IPv4 y conexión TCP. Esto hay que cambiarlo para la iteración 2.
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 

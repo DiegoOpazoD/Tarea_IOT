@@ -164,19 +164,24 @@ char* create_packet(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_l
         memcpy(packet + 47, &fre_z, 4);
         memcpy(packet + 51, &rms, 4);
     }
-    else if(protocol_packet == 3){
+    else if(protocol_packet == 4){
         uint8_t temp = rand_int(5,30);
         uint32_t press = rand_int(1000, 1200); 
         uint8_t hum = rand_int(30, 80);
         float co = rand_float(30.0f, 200.0f);
-        float acc_x = rand_float(-16.0f, 16.0f);
-        float acc_y = rand_float(-16.0f, 16.0f);
-        float acc_z = rand_float(-16.0f, 16.0f);
-        float gyr_x = rand_float(-1000.0f, 1000.0f);
-        float gyr_y = rand_float(-1000.0f, 1000.0f);
-        float gyr_z = rand_float(-1000.0f, 1000.0f);
+        float acc_x[2000], acc_y[2000], acc_z[2000];
+        float gyr_x[2000], gyr_y[2000], gyr_z[2000];
 
-        packet = (char*)malloc(51 * sizeof(char));
+        for(int i = 0; i < 2000; i++){
+            acc_x[i] = rand_float(-16.0f, 16.0f);
+            acc_y[i] = rand_float(-16.0f, 16.0f);
+            acc_z[i] = rand_float(-16.0f, 16.0f);
+            gyr_x[i] = rand_float(-1000.0f, 1000.0f);
+            gyr_y[i] = rand_float(-1000.0f, 1000.0f);
+            gyr_z[i] = rand_float(-1000.0f, 1000.0f);
+        }
+
+        packet = (char*)malloc(80027 * sizeof(char));
 
         memcpy(packet, header, 12);
         free_packet(header);
@@ -187,13 +192,14 @@ char* create_packet(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_l
         memcpy(packet + 18, &press, 4);
         memcpy(packet + 22, &hum, 1);
         memcpy(packet + 23, &co, 4);
-        memcpy(packet + 27, &acc_x, 4);
-        memcpy(packet + 31, &acc_y, 4);
-        memcpy(packet + 35, &acc_z, 4);
-        memcpy(packet + 39, &gyr_x, 4);
-        memcpy(packet + 43, &gyr_y, 4);
-        memcpy(packet + 47, &gyr_z, 4);
+        memcpy(packet + 27, acc_x, 8000);
+        memcpy(packet + 8027, acc_y, 8000);
+        memcpy(packet + 16027, acc_z, 8000);
+        memcpy(packet + 24027, gyr_x, 8000);
+        memcpy(packet + 32027, gyr_y, 8000);
+        memcpy(packet + 40027, gyr_z, 8000);
     }
+
     return packet;
 }
 
@@ -207,6 +213,8 @@ char* create_packet(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_l
 #define WIFI_PASSWORD "cc532624"
 #define SERVER_IP     "10.20.1.1"
 #define SERVER_PORT   1236
+#define TCP_PORT   1240
+#define UDP_PORT   1250
 
 
 // Variables de WiFi
@@ -332,8 +340,6 @@ void nvs_init() {
     ESP_ERROR_CHECK(ret);
 }
 
-
-
 // Helper functions
 int create_socket(int type) {
     int sock = socket(AF_INET, type, 0);
@@ -379,7 +385,7 @@ uint16_t get_message_length(uint8_t protocol_id) {
         case 1: return 5;
         case 2: return 15;
         case 3: return 43;
-        case 4: return 39;
+        case 4: return 39; ///
         default: return 0;
     }
 }
@@ -410,7 +416,21 @@ char* ask_config() { //agregar MAC
     }
 
     const char *msg = "Active config pls.";
-    send_message(sock, msg, strlen(msg));
+    
+    uint8_t mac_add[6]; 
+    get_mac(mac_add);   
+
+    size_t msg_len = strlen(msg);
+    size_t total_len = msg_len + sizeof(mac_add);
+
+    char *combined_msg = malloc(total_len);
+
+    memcpy(combined_msg, msg, msg_len);
+    memcpy(combined_msg + msg_len, mac_add, sizeof(mac_add));
+
+    send_message(sock, combined_msg, total_len);
+
+    free(combined_msg);
 
     char rx_buffer[128];
     int rx_len = receive_message(sock, rx_buffer, sizeof(rx_buffer));
@@ -438,7 +458,7 @@ char* ask_config() { //agregar MAC
 void socket_tcp(uint16_t msg_id, uint8_t transport_layer, uint8_t protocol_id, uint16_t msg_length) {
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(SERVER_PORT);
+    server_addr.sin_port = htons(TCP_PORT);
     inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr.s_addr);
 
     int sock = create_socket(SOCK_STREAM);
@@ -448,12 +468,37 @@ void socket_tcp(uint16_t msg_id, uint8_t transport_layer, uint8_t protocol_id, u
         close(sock);
         return;
     }
-    // Acá hay que ver el caso de mensaje largo
 
-    char *packet = create_packet(&msg_id, &protocol_id, &transport_layer, &msg_length);
-    send_packet(sock, packet, msg_length);
+    if(protocol_id != 4){
+        char *packet = create_packet(&msg_id, &protocol_id, &transport_layer, &msg_length);
+        send_packet(sock, packet, msg_length);
+        free_packet(packet);
+    }  
+    else{
+        char* packet = create_packet(&msg_id, &protocol_id, &transport_layer, &msg_length);
+        char* sending_packet = (char*)malloc(1024*sizeof(char));
 
-    free_packet(packet);  
+        int HEADER_SIZE = 12;
+
+        int bytes_sent = 0;
+        int CHUNK_SIZE = 1024;
+        int remaining_bytes = msg_length
+
+        memcpy(sending_packet, packet, CHUNK_SIZE);
+         send_packet(sock, sending_packet, CHUNK_SIZE);
+        remaining_bytes -= CHUNK_SIZE;
+        bytes_sent += CHUNK_SIZE;
+
+        while(remaining_bytes  > 0){
+            memcpy(sending_packet + HEADER_SIZE, packet + bytes_sent, CHUNK_SIZE - HEADER_SIZE);
+            send_packet(sock, sending_packet, CHUNK_SIZE);
+            remaining_bytes -= CHUNK_SIZE - HEADER_SIZE;
+            bytes_sent += CHUNK_SIZE - HEADER_SIZE;
+        }
+
+        free_packet(packet);
+        free_packet(sending_packet);
+    }
     close(sock);
 
     handle_deep_sleep();
@@ -462,18 +507,62 @@ void socket_tcp(uint16_t msg_id, uint8_t transport_layer, uint8_t protocol_id, u
 void socket_udp(uint16_t msg_id, uint8_t transport_layer, uint8_t protocol_id, uint16_t msg_length) {
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(SERVER_PORT);
+    server_addr.sin_port = htons(UDP_PORT);
     inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr.s_addr);
 
     int sock = create_socket(SOCK_DGRAM);
     if (sock < 0) return;
 
-    // Acá hay que ver el caso de mensaje largo
-    char *packet = create_packet(&msg_id, &protocol_id, &transport_layer, &msg_length);
-    sendto(sock, packet, msg_length + 12, 0, (struct sockaddr *)&server_addr, server_addr_len);
+    while(true){
+        if (protocol_id != 4){
+            char *packet = create_packet(&msg_id, &protocol_id, &transport_layer, &msg_length);
+            sendto(sock, packet, msg_length + 12, 0, (struct sockaddr *)&server_addr, server_addr_len);
+            free_packet(packet);  
 
-    free_packet(packet);  
+            char rx_buffer[128];
+            int rx_len = receive_message(sock, rx_buffer, sizeof(rx_buffer));
+            if (rx_len < 0) {
+                close(sock);
+                return NULL;
+            
+            if(rx_buffer == "Todo bien.") break;
+        }
+        else{
+            char* packet = create_packet(&msg_id, &protocol_id, &transport_layer, &msg_length);
+            char* sending_packet = (char*)malloc(1024*sizeof(char));
+
+            int HEADER_SIZE = 12;
+
+            int bytes_sent = 0;
+            int CHUNK_SIZE = 1024;
+            int remaining_bytes = msg_length
+
+            memcpy(sending_packet, packet, CHUNK_SIZE);
+            sendto(sock, sending_packet, CHUNK_SIZE, 0, (struct sockaddr *)&server_addr, server_addr_len);
+            remaining_bytes -= CHUNK_SIZE;
+            bytes_sent += CHUNK_SIZE;
+
+            while(remaining_bytes  > 0){
+                memcpy(sending_packet + HEADER_SIZE, packet + bytes_sent, CHUNK_SIZE - HEADER_SIZE);
+                sendto(sock, sending_packet, CHUNK_SIZE, 0, (struct sockaddr *)&server_addr, server_addr_len);
+                remaining_bytes -= CHUNK_SIZE - HEADER_SIZE;
+                bytes_sent += CHUNK_SIZE - HEADER_SIZE;
+            }
+
+            free_packet(packet);
+            free_packet(sending_packet);
+ 
+            char rx_buffer[128];
+            int rx_len = receive_message(sock, rx_buffer, sizeof(rx_buffer));
+            if (rx_len < 0) {
+                close(sock);
+                return NULL;
+            
+            if(rx_buffer == "Todo bien.") break;
+        }
+    }
     close(sock);
+}
 }
 
 
@@ -491,20 +580,7 @@ void app_main(void){
         uint8_t protocol_id;
         uint16_t msg_length;
 
-        goto config;
-        goto ifstatements;
-
-
-        ifstatements:
-            if(transport_layer==0) 
-                goto tcp;
-            else if (transport_layer == 1) {
-                goto udp;
-                goto config;
-                goto ifstatements;
-            }
-
-        config:
+        while(true){
             char* buffer = ask_config();
 
             msg_id = parse_message_id(buffer);
@@ -514,11 +590,13 @@ void app_main(void){
 
             free(buffer);
 
-        tcp:
-            socket_tcp(msg_id, transport_layer, protocol_id, msg_length);
-        
-        udp:
-            socket_udp(msg_id, transport_layer, protocol_id, msg_length);
-
+            if(transport_layer==0) {
+                socket_tcp(msg_id, transport_layer, protocol_id, msg_length);
+                break;
+            }
+            else if (transport_layer == 1) {
+                socket_udp(msg_id, transport_layer, protocol_id, msg_length);
+            }
+        }   
     }
 }
