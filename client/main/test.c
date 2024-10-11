@@ -2,6 +2,7 @@
 #include <stdlib.h> 
 #include <string.h>
 #include <time.h>
+#include <math.h>
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_system.h"
@@ -13,34 +14,38 @@
 #include "lwip/err.h"
 #include "lwip/sys.h"
 #include "nvs_flash.h"
-#include "lwip/sockets.h" // Para sockets
+#include "lwip/sockets.h" 
 
-//Credenciales de WiFi
 
-#define WIFI_SSID  "cc5326"
-#define WIFI_PASSWORD "cc532624"
-#define SERVER_IP     "10.20.1.1"//"192.168.0.1" // IP del servidor
-#define SERVER_PORT   1236
+////////////////////////////////////////////////////////////////////// PACKETS //////////////////////////////////////////////////////////////////////
 
-// Variables de WiFi
-#define WIFI_CONNECTED_BIT BIT0
-#define WIFI_FAIL_BIT BIT1
-static const char* TAG = "WIFI";
-static int s_retry_num = 0;
-static EventGroupHandle_t s_wifi_event_group;
 
+/**
+ * Function that generates a random integer based on lower and upper bounds.
+ */
 int rand_int(int lower_bound, int upper_bound){
-    int value = rand(time(NULL)) % (upper_bound - lower_bound + 1) + lower_bound; 
-    return value;
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    srand((time_t)ts.tv_sec + (time_t)ts.tv_nsec);
+    return rand() % (upper_bound - lower_bound + 1) + lower_bound;
 }
 
 
+/**
+ * Function that generates a random float based on lower and upper bounds.
+ */
 float rand_float( float lower_bound, float upper_bound ){
-    float scale = rand(time(NULL)) / (float) RAND_MAX; 
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    srand((time_t)ts.tv_sec + (time_t)ts.tv_nsec);
+    float scale = (float)rand() / (float)RAND_MAX; 
     return lower_bound + scale * ( upper_bound - lower_bound );      
 }
 
 
+/**
+ * Getter for the mac address on an ESP.
+ */
 void get_mac(uint8_t* baseMac) {
     esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, baseMac);
     if (ret == ESP_OK) {
@@ -52,10 +57,18 @@ void get_mac(uint8_t* baseMac) {
     }
 }
 
+
+/**
+ * Function that gets used to free a certain packet.
+ */
 void free_packet(char* packet){
     free(packet);
 }
 
+
+/**
+ * Function that facilitates the making of a header.
+ */
 char* create_header(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_layer, uint16_t* msg_length){
     char* res = (char*)malloc(12 * sizeof(char));
 
@@ -71,6 +84,9 @@ char* create_header(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_l
 }
 
 
+/**
+ * Function that creates a packet based in the protocol_id given.
+ */
 char* create_packet(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_layer, uint16_t* msg_length){
     uint8_t protocol_packet = *protocol_id;
     char* header = create_header(msg_id, protocol_id, transport_layer, msg_length);
@@ -116,14 +132,102 @@ char* create_packet(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_l
         memcpy(packet + 22, &hum, 1);
         memcpy(packet + 23, &co, 4);
     }
+    else if(protocol_packet == 3){
+        uint8_t temp = rand_int(5,30);
+        uint32_t press = rand_int(1000, 1200); 
+        uint8_t hum = rand_int(30, 80);
+        float co = rand_float(30.0f, 200.0f);
+        float amp_x = rand_float(0.0059f, 0.12f);
+        float amp_y = rand_float(0.0041f, 0.011f);
+        float amp_z = rand_float(0.008f, 0.15f);
+        float fre_x = rand_float(29.0f, 31.0f);
+        float fre_y = rand_float(59.0f, 61.0f);
+        float fre_z = rand_float(89.0f, 91.0f);
+        float rms = sqrtf(amp_x*amp_x+amp_y*amp_y+amp_z*amp_z);
 
+        packet = (char*)malloc(55 * sizeof(char));
+
+        memcpy(packet, header, 12);
+        free_packet(header);
+
+        memcpy(packet + 12, &truncated_time, 4);
+        memcpy(packet + 16, &batt_level, 1);
+        memcpy(packet + 17, &temp, 1);
+        memcpy(packet + 18, &press, 4);
+        memcpy(packet + 22, &hum, 1);
+        memcpy(packet + 23, &co, 4);
+        memcpy(packet + 27, &amp_x, 4);
+        memcpy(packet + 31, &amp_y, 4);
+        memcpy(packet + 35, &amp_z, 4);
+        memcpy(packet + 39, &fre_x, 4);
+        memcpy(packet + 43, &fre_y, 4);
+        memcpy(packet + 47, &fre_z, 4);
+        memcpy(packet + 51, &rms, 4);
+    }
+    else if(protocol_packet == 3){
+        uint8_t temp = rand_int(5,30);
+        uint32_t press = rand_int(1000, 1200); 
+        uint8_t hum = rand_int(30, 80);
+        float co = rand_float(30.0f, 200.0f);
+        float acc_x = rand_float(-16.0f, 16.0f);
+        float acc_y = rand_float(-16.0f, 16.0f);
+        float acc_z = rand_float(-16.0f, 16.0f);
+        float gyr_x = rand_float(-1000.0f, 1000.0f);
+        float gyr_y = rand_float(-1000.0f, 1000.0f);
+        float gyr_z = rand_float(-1000.0f, 1000.0f);
+
+        packet = (char*)malloc(51 * sizeof(char));
+
+        memcpy(packet, header, 12);
+        free_packet(header);
+
+        memcpy(packet + 12, &truncated_time, 4);
+        memcpy(packet + 16, &batt_level, 1);
+        memcpy(packet + 17, &temp, 1);
+        memcpy(packet + 18, &press, 4);
+        memcpy(packet + 22, &hum, 1);
+        memcpy(packet + 23, &co, 4);
+        memcpy(packet + 27, &acc_x, 4);
+        memcpy(packet + 31, &acc_y, 4);
+        memcpy(packet + 35, &acc_z, 4);
+        memcpy(packet + 39, &gyr_x, 4);
+        memcpy(packet + 43, &gyr_y, 4);
+        memcpy(packet + 47, &gyr_z, 4);
+    }
     return packet;
 }
 
 
 
+////////////////////////////////////////////////////////////////////// WIFI //////////////////////////////////////////////////////////////////////
 
 
+//Credenciales de WiFi
+#define WIFI_SSID  "cc5326"
+#define WIFI_PASSWORD "cc532624"
+#define SERVER_IP     "10.20.1.1"
+#define SERVER_PORT   1236
+
+
+// Variables de WiFi
+#define WIFI_CONNECTED_BIT BIT0
+#define WIFI_FAIL_BIT BIT1
+static const char* TAG = "WIFI";
+static int s_retry_num = 0;
+static EventGroupHandle_t s_wifi_event_group;
+
+/**
+ * WiFi event handler
+ *
+ * This callback handles WiFi events, such as the start of
+ * the connection, disconnection and IP address setup on the
+ * network interface.
+ *
+ * @param arg      Additional information for the callback
+ * @param event_base   Event base
+ * @param event_id     Event identifier
+ * @param event_data   Additional event information
+ */
 void event_handler(void* arg, esp_event_base_t event_base,
                           int32_t event_id, void* event_data) {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
@@ -147,6 +251,15 @@ void event_handler(void* arg, esp_event_base_t event_base,
 }
 
 
+/**
+ * Initializes Wi-Fi in station mode
+ *
+ * Initializes Wi-Fi in station mode and connects to a Wi-Fi network
+ * with the given SSID and password.
+ *
+ * @param ssid   SSID of the Wi-Fi network
+ * @param password  Password of the Wi-Fi network
+ */
 void wifi_init_sta(char* ssid, char* password) {
     s_wifi_event_group = xEventGroupCreate();
 
@@ -202,6 +315,13 @@ void wifi_init_sta(char* ssid, char* password) {
 }
 
 
+/**
+ * @brief Initialize the Non-Volatile Storage (NVS)
+ *
+ * The first time NVS is used, the underlying flash storage must be
+ * partitioned. This function will erase the storage if it is not already
+ * partitioned, and then initialize the NVS.
+ */
 void nvs_init() {
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES ||
@@ -213,78 +333,151 @@ void nvs_init() {
 }
 
 
-void socket_tcp(){
+
+// Helper functions
+int create_socket(int type) {
+    int sock = socket(AF_INET, type, 0);
+    if (sock < 0) {
+        ESP_LOGE(TAG, "Error creating socket");
+    }
+    return sock;
+}
+
+int connect_to_server(int sock, struct sockaddr_in *server_addr) {
+    return connect(sock, (struct sockaddr *)server_addr, sizeof(*server_addr));
+}
+
+void send_message(int sock, const char *msg, size_t len) {
+    send(sock, msg, len, 0);
+}
+
+int receive_message(int sock, char *buffer, size_t buffer_size) {
+    int rx_len = recv(sock, buffer, buffer_size - 1, 0);
+    if (rx_len >= 0) {
+        buffer[rx_len] = '\0';
+        ESP_LOGI(TAG, "Received data: %s", buffer);
+    } else {
+        ESP_LOGE(TAG, "Error receiving data");
+    }
+    return rx_len;
+}
+
+uint16_t parse_message_id(char *rx_buffer) {
+    return (uint16_t)(rx_buffer[0] - '0');
+}
+
+uint8_t parse_transport_layer(char *rx_buffer) {
+    return (uint8_t)(rx_buffer[1] - '0');
+}
+
+uint8_t parse_protocol_id(char *rx_buffer) {
+    return (uint8_t)(rx_buffer[2] - '0');
+}
+uint16_t get_message_length(uint8_t protocol_id) {
+    switch (protocol_id) {
+        case 0: return 4;
+        case 1: return 5;
+        case 2: return 15;
+        case 3: return 43;
+        case 4: return 39;
+        default: return 0;
+    }
+}
+
+void send_packet(int sock, const char *packet, uint16_t msg_length) {
+    send(sock, packet, msg_length + 12, 0);
+    ESP_LOGI(TAG, "Message sent");
+}
+
+void handle_deep_sleep() {
+    esp_sleep_enable_timer_wakeup(1000000);
+    esp_deep_sleep_start();
+}
+
+
+char* ask_config() { //agregar MAC
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(SERVER_PORT);
     inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr.s_addr);
 
-    int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (sock < 0) {
-        ESP_LOGE(TAG, "Error creating socket");
-        return;
-    }
+    int sock = create_socket(SOCK_STREAM);
+    if (sock < 0) return NULL;
 
-    if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
-        ESP_LOGE(TAG, "Error connecting to the server");
+    if (connect_to_server(sock, &server_addr) != 0) {
         close(sock);
-        return;
+        return NULL;
     }
 
-    char * msg = "Active config pls.";
-    send(sock, msg, strlen(msg), 0);
+    const char *msg = "Active config pls.";
+    send_message(sock, msg, strlen(msg));
 
     char rx_buffer[128];
-    int rx_len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
+    int rx_len = receive_message(sock, rx_buffer, sizeof(rx_buffer));
     if (rx_len < 0) {
-        ESP_LOGE(TAG, "Error receiving data");
+        close(sock);
+        return NULL;
+    }
+
+    char *response = (char*)malloc((rx_len + 1) * sizeof(char));
+    if (response == NULL) {
+        close(sock);
+        return NULL;
+    }
+
+    strncpy(response, rx_buffer, rx_len);
+    response[rx_len] = '\0'; 
+
+    close(sock);
+    return response;
+}
+
+
+
+// Refactored TCP socket function
+void socket_tcp(uint16_t msg_id, uint8_t transport_layer, uint8_t protocol_id, uint16_t msg_length) {
+    struct sockaddr_in server_addr;
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(SERVER_PORT);
+    inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr.s_addr);
+
+    int sock = create_socket(SOCK_STREAM);
+    if (sock < 0) return;
+
+    if (connect_to_server(sock, &server_addr) != 0) {
         close(sock);
         return;
     }
-    rx_buffer[rx_len] = '\0'; 
-    ESP_LOGI(TAG, "Received data: %s", rx_buffer);
-
-    // Extract fields from received data
-    uint16_t msg_id = (uint16_t*) (rx_buffer[0]-'0'); //solucion temporal
-    uint8_t protocol_id = (uint8_t*) (rx_buffer[2]-'0');
-    //uint16_t msg_id = *(uint16_t*)(rx_buffer); 
-    //uint8_t protocol_id = *(uint8_t*)(rx_buffer + 2);
-    uint8_t transport_layer = 0;
-    uint16_t msg_length;
-
-    ESP_LOGI(TAG, "msg_id %u\n", msg_id);
-    ESP_LOGI(TAG, "protocolo_id %u\n", protocol_id);
-
-    if (protocol_id == 0) {
-        msg_length = 4;
-    } else if (protocol_id == 1) {
-        msg_length = 5;
-    } else if (protocol_id == 2) {
-        msg_length = 15;
-    }
+    // Acá hay que ver el caso de mensaje largo
 
     char *packet = create_packet(&msg_id, &protocol_id, &transport_layer, &msg_length);
-
-    send(sock, packet, msg_length+12, 0);  
-
-    ESP_LOGI(TAG, "se mando el mensaje\n");
-  
-    rx_len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
-    if (rx_len < 0) {
-        ESP_LOGE(TAG, "Error receiving data");
-        free_packet(packet);  
-        close(sock);
-        return;
-    }
-    rx_buffer[rx_len] = '\0'; 
-    ESP_LOGI(TAG, "Received data: %s", rx_buffer);
+    send_packet(sock, packet, msg_length);
 
     free_packet(packet);  
-    close(sock);    
-    esp_sleep_enable_timer_wakeup(1000000); 
+    close(sock);
 
-    esp_deep_sleep_start();
+    handle_deep_sleep();
 }
+
+void socket_udp(uint16_t msg_id, uint8_t transport_layer, uint8_t protocol_id, uint16_t msg_length) {
+    struct sockaddr_in server_addr;
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(SERVER_PORT);
+    inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr.s_addr);
+
+    int sock = create_socket(SOCK_DGRAM);
+    if (sock < 0) return;
+
+    // Acá hay que ver el caso de mensaje largo
+    char *packet = create_packet(&msg_id, &protocol_id, &transport_layer, &msg_length);
+    sendto(sock, packet, msg_length + 12, 0, (struct sockaddr *)&server_addr, server_addr_len);
+
+    free_packet(packet);  
+    close(sock);
+}
+
+
+////////////////////////////////////////////////////////////////////// MAIN //////////////////////////////////////////////////////////////////////
 
 
 void app_main(void){
@@ -292,7 +485,40 @@ void app_main(void){
         nvs_init();
         wifi_init_sta(WIFI_SSID, WIFI_PASSWORD);
         ESP_LOGI(TAG,"Conectado a WiFi!\n"); 
-        socket_tcp();
+
+        uint16_t msg_id;
+        uint8_t transport_layer;
+        uint8_t protocol_id;
+        uint16_t msg_length;
+
+        goto config;
+        goto ifstatements;
+
+
+        ifstatements:
+            if(transport_layer==0) 
+                goto tcp;
+            else if (transport_layer == 1) {
+                goto udp;
+                goto config;
+                goto ifstatements;
+            }
+
+        config:
+            char* buffer = ask_config();
+
+            msg_id = parse_message_id(buffer);
+            transport_layer = parse_transport_layer(buffer);
+            protocol_id = parse_protocol_id(buffer);
+            msg_length = get_message_length(protocol_id);
+
+            free(buffer);
+
+        tcp:
+            socket_tcp(msg_id, transport_layer, protocol_id, msg_length);
+        
+        udp:
+            socket_udp(msg_id, transport_layer, protocol_id, msg_length);
+
     }
 }
-
