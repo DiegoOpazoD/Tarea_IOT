@@ -333,166 +333,147 @@ void nvs_init() {
 }
 
 
-/**
- * @brief Create a TCP socket and connect to the server
- * 
- * This function creates a TCP socket, connects to the server, sends a message, receives a response, and then closes the socket.
- * The message sent is a string "Active config pls." and the response received is a string with the configuration information.
- * The configuration information is extracted from the response and a new packet is created with the extracted information.
- * The new packet is then sent back to the server and the socket is closed.
- * Finally, the device enters deep sleep for 1 second.
- */
-void socket_tcp(){
-    struct sockaddr_in server_addr;
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(SERVER_PORT);
-    inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr.s_addr);
 
-    int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+// Helper functions
+int create_socket(int type) {
+    int sock = socket(AF_INET, type, 0);
     if (sock < 0) {
         ESP_LOGE(TAG, "Error creating socket");
-        return;
     }
+    return sock;
+}
 
-    if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
-        ESP_LOGE(TAG, "Error connecting to the server");
-        close(sock);
-        return;
-    }
+int connect_to_server(int sock, struct sockaddr_in *server_addr) {
+    return connect(sock, (struct sockaddr *)server_addr, sizeof(*server_addr));
+}
 
-    char * msg = "Active config pls.";
-    send(sock, msg, strlen(msg), 0);
+void send_message(int sock, const char *msg, size_t len) {
+    send(sock, msg, len, 0);
+}
 
-    char rx_buffer[128];
-    int rx_len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
-    if (rx_len < 0) {
+int receive_message(int sock, char *buffer, size_t buffer_size) {
+    int rx_len = recv(sock, buffer, buffer_size - 1, 0);
+    if (rx_len >= 0) {
+        buffer[rx_len] = '\0';
+        ESP_LOGI(TAG, "Received data: %s", buffer);
+    } else {
         ESP_LOGE(TAG, "Error receiving data");
-        close(sock);
-        return;
     }
-    rx_buffer[rx_len] = '\0'; 
-    ESP_LOGI(TAG, "Received data: %s", rx_buffer);
+    return rx_len;
+}
 
-    uint16_t msg_id = (uint16_t*) (rx_buffer[0]-'0'); 
-    uint8_t protocol_id = (uint8_t*) (rx_buffer[2]-'0');
-    uint8_t transport_layer = 0;
-    uint16_t msg_length;
+uint16_t parse_message_id(char *rx_buffer) {
+    return (uint16_t)(rx_buffer[0] - '0');
+}
 
-    ESP_LOGI(TAG, "msg_id %u\n", msg_id);
-    ESP_LOGI(TAG, "protocolo_id %u\n", protocol_id);
+uint8_t parse_transport_layer(char *rx_buffer) {
+    return (uint8_t)(rx_buffer[1] - '0');
+}
 
-    if (protocol_id == 0) {
-        msg_length = 4;
-    } else if (protocol_id == 1) {
-        msg_length = 5;
-    } else if (protocol_id == 2) {
-        msg_length = 15;
-    }else if (protocol_id == 3) {
-        msg_length = 43;
-    } else if (protocol_id == 4) {
-        msg_length = 39;
+uint8_t parse_protocol_id(char *rx_buffer) {
+    return (uint8_t)(rx_buffer[2] - '0');
+}
+uint16_t get_message_length(uint8_t protocol_id) {
+    switch (protocol_id) {
+        case 0: return 4;
+        case 1: return 5;
+        case 2: return 15;
+        case 3: return 43;
+        case 4: return 39;
+        default: return 0;
     }
+}
 
-    char *packet = create_packet(&msg_id, &protocol_id, &transport_layer, &msg_length);
+void send_packet(int sock, const char *packet, uint16_t msg_length) {
+    send(sock, packet, msg_length + 12, 0);
+    ESP_LOGI(TAG, "Message sent");
+}
 
-    send(sock, packet, msg_length + 12, 0);  
-
-    ESP_LOGI(TAG, "se mando el mensaje\n");
-  
-    rx_len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
-    if (rx_len < 0) {
-        ESP_LOGE(TAG, "Error receiving data");
-        free_packet(packet);  
-        close(sock);
-        return;
-    }
-    rx_buffer[rx_len] = '\0'; 
-    ESP_LOGI(TAG, "Received data: %s", rx_buffer);
-
-    free_packet(packet);  
-    close(sock);    
-    esp_sleep_enable_timer_wakeup(1000000); 
-
+void handle_deep_sleep() {
+    esp_sleep_enable_timer_wakeup(1000000);
     esp_deep_sleep_start();
 }
 
 
-/**
- * @brief UDP socket to send and receive data to/from a server.
- *
- * This function creates a UDP socket to send and receive data to/from a server.
- * It uses the server IP and port defined in the macros SERVER_IP and SERVER_PORT.
- * It sends a message to the server, receives a message back and parses the message
- * to extract the fields and creates a packet to send back to the server.
- * Finally, it closes the socket and puts the chip to deep sleep.
- */
-void socket_udp(){
+char* ask_config() { //agregar MAC
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(SERVER_PORT);
     inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr.s_addr);
 
-    int sock = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sock < 0) {
-        ESP_LOGE(TAG, "Error creating socket");
-        return;
+    int sock = create_socket(SOCK_STREAM);
+    if (sock < 0) return NULL;
+
+    if (connect_to_server(sock, &server_addr) != 0) {
+        close(sock);
+        return NULL;
     }
 
-    char * msg = "Active config pls.";
-    sendto(sock, msg, strlen(msg), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+    const char *msg = "Active config pls.";
+    send_message(sock, msg, strlen(msg));
 
     char rx_buffer[128];
-    socklen_t server_addr_len = sizeof(server_addr);
-    int rx_len = recvfrom(sock, rx_buffer, sizeof(rx_buffer) - 1, 0, (struct sockaddr *)&server_addr, &server_addr_len);
+    int rx_len = receive_message(sock, rx_buffer, sizeof(rx_buffer));
     if (rx_len < 0) {
-        ESP_LOGE(TAG, "Error receiving data");
+        close(sock);
+        return NULL;
+    }
+
+    char *response = (char*)malloc((rx_len + 1) * sizeof(char));
+    if (response == NULL) {
+        close(sock);
+        return NULL;
+    }
+
+    strncpy(response, rx_buffer, rx_len);
+    response[rx_len] = '\0'; 
+
+    close(sock);
+    return response;
+}
+
+
+
+// Refactored TCP socket function
+void socket_tcp(uint16_t msg_id, uint8_t transport_layer, uint8_t protocol_id, uint16_t msg_length) {
+    struct sockaddr_in server_addr;
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(SERVER_PORT);
+    inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr.s_addr);
+
+    int sock = create_socket(SOCK_STREAM);
+    if (sock < 0) return;
+
+    if (connect_to_server(sock, &server_addr) != 0) {
         close(sock);
         return;
     }
-    rx_buffer[rx_len] = '\0'; 
-    ESP_LOGI(TAG, "Received data: %s", rx_buffer);
-
-    uint16_t msg_id = (uint16_t*) (rx_buffer[0]-'0'); 
-    uint8_t protocol_id = (uint8_t*) (rx_buffer[2]-'0');
-    uint8_t transport_layer = 0;
-    uint16_t msg_length;
-
-    ESP_LOGI(TAG, "msg_id %u\n", msg_id);
-    ESP_LOGI(TAG, "protocolo_id %u\n", protocol_id);
-
-    if (protocol_id == 0) {
-        msg_length = 4;
-    } else if (protocol_id == 1) {
-        msg_length = 5;
-    } else if (protocol_id == 2) {
-        msg_length = 15;
-    }else if (protocol_id == 3) {
-        msg_length = 43;
-    } else if (protocol_id == 4) {
-        msg_length = 39;
-    }
+    // Acá hay que ver el caso de mensaje largo
 
     char *packet = create_packet(&msg_id, &protocol_id, &transport_layer, &msg_length);
-
-    sendto(sock, packet, msg_length+12, 0, (struct sockaddr *)&server_addr, server_addr_len);  
-
-    ESP_LOGI(TAG, "se mando el mensaje\n");
-  
-    rx_len = recvfrom(sock, rx_buffer, sizeof(rx_buffer) - 1, 0, (struct sockaddr *)&server_addr, &server_addr_len);
-    if (rx_len < 0) {
-        ESP_LOGE(TAG, "Error receiving data");
-        free_packet(packet);  
-        close(sock);
-        return;
-    }
-    rx_buffer[rx_len] = '\0'; 
-    ESP_LOGI(TAG, "Received data: %s", rx_buffer);
+    send_packet(sock, packet, msg_length);
 
     free_packet(packet);  
-    close(sock);    
-    esp_sleep_enable_timer_wakeup(1000000); 
+    close(sock);
 
-    esp_deep_sleep_start();
+    handle_deep_sleep();
+}
+
+void socket_udp(uint16_t msg_id, uint8_t transport_layer, uint8_t protocol_id, uint16_t msg_length) {
+    struct sockaddr_in server_addr;
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(SERVER_PORT);
+    inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr.s_addr);
+
+    int sock = create_socket(SOCK_DGRAM);
+    if (sock < 0) return;
+
+    // Acá hay que ver el caso de mensaje largo
+    char *packet = create_packet(&msg_id, &protocol_id, &transport_layer, &msg_length);
+    sendto(sock, packet, msg_length + 12, 0, (struct sockaddr *)&server_addr, server_addr_len);
+
+    free_packet(packet);  
+    close(sock);
 }
 
 
@@ -504,7 +485,40 @@ void app_main(void){
         nvs_init();
         wifi_init_sta(WIFI_SSID, WIFI_PASSWORD);
         ESP_LOGI(TAG,"Conectado a WiFi!\n"); 
-        socket_tcp();
+
+        uint16_t msg_id;
+        uint8_t transport_layer;
+        uint8_t protocol_id;
+        uint16_t msg_length;
+
+        goto config;
+        goto ifstatements;
+
+
+        ifstatements:
+            if(transport_layer==0) 
+                goto tcp;
+            else if (transport_layer == 1) {
+                goto udp;
+                goto config;
+                goto ifstatements;
+            }
+
+        config:
+            char* buffer = ask_config();
+
+            msg_id = parse_message_id(buffer);
+            transport_layer = parse_transport_layer(buffer);
+            protocol_id = parse_protocol_id(buffer);
+            msg_length = get_message_length(protocol_id);
+
+            free(buffer);
+
+        tcp:
+            socket_tcp(msg_id, transport_layer, protocol_id, msg_length);
+        
+        udp:
+            socket_udp(msg_id, transport_layer, protocol_id, msg_length);
+
     }
 }
-
