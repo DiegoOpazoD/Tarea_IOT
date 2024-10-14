@@ -6,7 +6,7 @@ def cargar_config_db():
     '''
     Función para cargar la configuración de la base de datos del archivo config.json.
     '''
-    with open('config.json', 'r') as config_file:
+    with open('include/config.json', 'r') as config_file:
         return json.load(config_file)
 
 

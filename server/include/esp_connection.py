@@ -1,4 +1,4 @@
-from server.include.esp_msg import * 
+from include.esp_msg import * 
 import socket
 import struct
 
@@ -15,7 +15,7 @@ class ESP_CONN:
             
     '''
 
-    def __innit__(self,transport_layer,mac_address) -> None:
+    def __init__(self,transport_layer,mac_address) -> None:
         self.mac_address = mac_address
         self.transport_layer = transport_layer
         if transport_layer == "tcp":
@@ -29,55 +29,64 @@ class ESP_CONN:
         '''
             Función para recibir el mensaje con los datos dados,
             '''
-        if self.transport_layer == "tcp":
+        print("abro obtener mensaje datos")
+        if self.transport_layer == 'tcp':
             self.socket.listen()
-            
-            try:
-                data = self.socket.recv(1024)
-                
-                data_length = len(data[12:])
-                
-                if data:
-                    print(f"Mensaje recibido: {data.hex()}")
-                    msg_completo = data
+            conn, addr = self.socket.accept()
+            with conn:
+                print('Conectado sub socket tcp por', addr)
+                try:
+                    data = conn.recv(1024)
                     
-                    header = data[:12]
-                    mac_add = header[:6]
-                    msg_id = header[6:8]
-                    protocol_id = header[8:9]
-                    transport_layer = header[9:10]
-                    length = header[10:12]
-                    body = data[12:]
+                    data_length = len(data[12:])
                     
-                    protocol_id_decodificado = struct.unpack('<B',protocol_id)[0]
-
-                    dicc_data  = {
-                        'mac_add' : mac_add.hex(),
-                        'msg_id' : struct.unpack('<H',msg_id)[0], 
-                        'protocol_id' : protocol_id_decodificado ,
-                        'transport_layer' : struct.unpack('<B',transport_layer)[0] ,
-                        'length' : struct.unpack('<H', length)[0]  ,
-                        'body': body,
-                    }
-
-                    msg_length = dicc_data['length']
-
-                    while data_length < msg_length:
-                        data = self.socket.recv(1024)
-                        msg_completo += data[12:]
-                        data_length += len(data) - 12
+                    if data:
+                        print(f"Mensaje recibido: {data.hex()}")
+                        msg_completo = data
                         
-                    return msg_completo
-                else:
-                    print("No se recibió ningún dato.")
+                        header = data[:12]
+                        mac_add = header[:6]
+                        msg_id = header[6:8]
+                        protocol_id = header[8:9]
+                        transport_layer = header[9:10]
+                        length = header[10:12]
+                        body = data[12:]
+                        
+                        protocol_id_decodificado = struct.unpack('<B',protocol_id)[0]
+
+                        dicc_data  = {
+                            'mac_add' : mac_add.hex(),
+                            'msg_id' : struct.unpack('<H',msg_id)[0], 
+                            'protocol_id' : protocol_id_decodificado ,
+                            'transport_layer' : struct.unpack('<B',transport_layer)[0] ,
+                            'length' : struct.unpack('<H', length)[0]  ,
+                            'body': body,
+                        }
+                        
+                        msg_length = dicc_data['length']
+                        print(msg_length)
+                        contar = 0 
+                        while contar < 10:
+                        #while data_length < msg_length:
+                            contar += 1
+                            print(msg_completo)
+                            print(f"se sigue en loop : {data_length} < {msg_length}")
+                            print(f"mensaje completo : {msg_completo} ")
+                            data = conn.recv(1024)
+                            msg_completo += data[12:]
+                            
+                            
+                        return msg_completo
+                    else:
+                        print("No se recibió ningún dato.")
+                        return None
+
+                except Exception as e:
+                    print(f"Error al recibir el mensaje: {e}")
                     return None
 
-            except Exception as e:
-                print(f"Error al recibir el mensaje: {e}")
-                return None
-
                 
-        elif self.transport_layer == "udp":
+        elif self.transport_layer == 'udp':
             try:
                 msg_completo = ''
                 while True:
@@ -95,6 +104,7 @@ class ESP_CONN:
                         length = header[10:12]
                         body = data[12:]
                         
+                        protocol_id_decodificado = struct.unpack('<B',protocol_id)[0]
 
                         dicc_data  = {
                             'mac_add' : mac_add.hex(),
@@ -105,7 +115,8 @@ class ESP_CONN:
                             'body': body,
                         }
 
-                        msg_length = dicc_data.length #total length
+                        msg_length = dicc_data['length'] #total length
+                        fallo = False
                         try:
                             while data_length < msg.length:
                                 self.socket.settimeout(10)
@@ -119,11 +130,11 @@ class ESP_CONN:
                         finally:
                             #enviar mensaje final de comunicacion 
                             if fallo:
-                                respuesta_cierre = "tamal"
+                                respuesta_cierre = "tamal".encode()
                                 self.socket.sendto(respuesta_cierre,addr)
                                 
                             else:
-                                respuesta_cierre = "tabien"
+                                respuesta_cierre = "tabien".encode()
                                 self.socket.sendto(respuesta_cierre,addr)
                                 break
                     else:
@@ -134,10 +145,7 @@ class ESP_CONN:
 
             except Exception as e:
                 print(f"Error al recibir el mensaje: {e}")
-                return None
-
-
-  12            
+                return None          
                 
                     
     

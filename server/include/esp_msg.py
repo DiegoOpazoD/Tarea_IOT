@@ -1,5 +1,5 @@
 import struct
-from db_utils import *
+from include.db_utils import *
  
 # Dentro de struct, el formato '>I H B' significa:
 # - '>': Big-endian (si es little-endian usar '<')
@@ -21,6 +21,7 @@ class ESP_MSG:
         - body: bytes, el cuerpo del mensaje.
     '''
     def __init__(self, msg:str) -> None:
+
         parsed_data = self.parse(msg)
         self.mac_address = parsed_data['mac_add']
         self.msg_id = parsed_data['msg_id']
@@ -45,7 +46,7 @@ class ESP_MSG:
         return f"MAC: {self.mac_address}, Msg ID: {self.msg_id}, Protocol ID: {self.protocol_id}, Transport Layer: {self.transport_layer}, Length: {self.length}, Body: {self.body}"
 
 
-    def __parse_body__(body, protocol_id) -> dict:
+    def parse_body(self , body, protocol_id) -> dict:
         '''
         Función que parsea el body en funcióon del protocol_id que se está dando.
         '''
@@ -69,19 +70,19 @@ class ESP_MSG:
             datos['pressure'] = struct.unpack('<I', press)[0]       
             datos['humidity'] = struct.unpack('<B', hum)[0]          
             datos['CO'] = struct.unpack('<f', co)[0]
-        elif protocol_id = 3:
+        elif protocol_id == 3:
             batt_level = body[4:5]
             temp = body[5:6]
             press = body[6:10]
             hum  = body[10:11]
             co = body[11:15]
-            amp_x = [15:19]
-            amp_y = [19:23]
-            amp_z = [23:27]
-            fre_x = [27:31]            
-            fre_y = [31:35]            
-            fre_z = [35:39]
-            rms = [39:43]
+            amp_x = body[15:19]
+            amp_y = body[19:23]
+            amp_z = body[23:27]
+            fre_x = body[27:31]            
+            fre_y = body[31:35]            
+            fre_z = body[35:39]
+            rms = body[39:43]
 
             datos['batt_level'] = struct.unpack('<B', batt_level)[0]  
             datos['temperature'] = struct.unpack('<B', temp)[0]      
@@ -97,7 +98,7 @@ class ESP_MSG:
             datos['rms'] = struct.unpack('<f', rms)[0]
 
                              
-        elif protocol_id = 4:
+        elif protocol_id == 4:
             batt_level = body[4:5]
             temp = body[5:6]
             press = body[6:10]
@@ -128,7 +129,7 @@ class ESP_MSG:
         return datos
         
 
-    def __parse__(self, mensaje) -> dict:
+    def parse(self, mensaje) -> dict:
         '''
         Función que parsea el mensaje recibido en un diccionario con sus atributos debidos.
         '''
