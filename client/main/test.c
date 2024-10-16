@@ -486,9 +486,22 @@ void ask_config(uint16_t* message_id , uint8_t* transport_layer, uint8_t* protoc
 
     close(sock);
 
-    *message_id = (uint16_t)(rx_buffer[0] - '0');
-    *transport_layer = (uint8_t)(rx_buffer[1] - '0');
-    *protocol_id = (uint8_t)(rx_buffer[2] - '0');
+    *transport_layer = (uint8_t)(rx_buffer[0] - '0');
+    *protocol_id = (uint8_t)(rx_buffer[1] - '0');
+
+    int i = 2;
+    while(rx_buffer[i+1] != '#'){
+        i++;
+    }
+
+    int length = i - 2 + 1;
+    char temp[length + 1];
+    strncpy(temp, &rx_buffer[2], length); 
+
+    temp[length] = '\0';
+
+    *message_id = (uint16_t)atoi(temp);
+
 
     free(response);
 }
@@ -547,32 +560,28 @@ void socket_tcp(uint16_t msg_id, uint8_t transport_layer, uint8_t protocol_id, u
         char* header = create_header(&msg_id, &protocol_id, &transport_layer, &msg_length);
     
         memcpy(sending_packet, header, HEADER_SIZE);
-
-        int i = 0;
+        
         int j = 0;
-        while(i < 4){
-            while(j < 16){
-                ESP_LOGI(TAG,"j: %u", j);
-                char* acc = accelerate();
-                memcpy(sending_packet + 12, acc, CHUNK_SIZE - HEADER_SIZE);
-                send_packet(sock, sending_packet, CHUNK_SIZE);
-                free_packet(acc);
-                j++;
-            }
-            i++;
+        while(j < 24){
+            ESP_LOGI(TAG,"j: %u", j);
+            uint64_t time = esp_timer_get_time();
+            initialize_random(time+j);
+            char* acc = accelerate();
+            memcpy(sending_packet + 12, acc, CHUNK_SIZE - HEADER_SIZE);
+            send_packet(sock, sending_packet, CHUNK_SIZE);
+            free_packet(acc);
+            j++;
         }
-
-        i = 0;
         j = 0;
-        while(i < 4){
-            while(j < 16){
-                char* gyr = gyroscope();
-                memcpy(sending_packet + 12, gyr, CHUNK_SIZE - HEADER_SIZE);
-                send_packet(sock, packet, CHUNK_SIZE);
-                free_packet(gyr);
-                j++;
-            }
-            i++;
+        while(j < 24){
+            ESP_LOGI(TAG,"j: %u", j);
+            uint64_t time = esp_timer_get_time();
+            initialize_random(time+(j*2));
+            char* gyr = gyroscope();
+            memcpy(sending_packet + 12, gyr, CHUNK_SIZE - HEADER_SIZE);
+            send_packet(sock, packet, CHUNK_SIZE);
+            free_packet(gyr);
+            j++;
         }
 
     }
@@ -604,7 +613,7 @@ void socket_udp(uint16_t msg_id, uint8_t transport_layer, uint8_t protocol_id, u
                 return;
             }
 
-            if (strcmp(rx_buffer, "Todo bien.") == 0) break;  
+            if (strcmp(rx_buffer, "tabien") == 0) break;  
         }  
     } 
     else {
@@ -615,12 +624,50 @@ void socket_udp(uint16_t msg_id, uint8_t transport_layer, uint8_t protocol_id, u
         uint8_t momentary_protocol_id = 2;
         socklen_t server_addr_len = sizeof(server_addr); 
 
-        char *packet = create_packet(&msg_id, &momentary_protocol_id, &transport_layer, &msg_length);
-
-        memcpy(packet + 8, &protocol_id, 1);
-
         while(true){
+            char *packet = create_packet(&msg_id, &momentary_protocol_id, &transport_layer, &msg_length);
+
+            memcpy(packet + 8, &protocol_id, 1);
+
             sendto(sock, packet, 27, 0, (struct sockaddr *)&server_addr, server_addr_len);
+
+            free_packet(packet);
+
+            char* sending_packet = (char*)malloc(1012);
+
+            char* header = create_header(&msg_id, &protocol_id, &transport_layer, &msg_length);
+        
+            memcpy(sending_packet, header, HEADER_SIZE);
+
+            free_packet(header);
+
+            int j = 0;
+            while(j < 24){
+                ESP_LOGI(TAG,"j: %u", j);
+                uint64_t time = esp_timer_get_time();
+                initialize_random(time+j);
+                char* acc = accelerate();
+                memcpy(sending_packet + 12, acc, CHUNK_SIZE - HEADER_SIZE);
+
+                sendto(sock, sending_packet, CHUNK_SIZE, 0, (struct sockaddr *)&server_addr, server_addr_len);
+                
+                free_packet(acc);
+                j++;
+            }
+
+            j = 0;
+            while(j < 24){
+                uint64_t time = esp_timer_get_time();
+                initialize_random(time+(j*2));
+                char* gyr = gyroscope();
+                memcpy(sending_packet + 12, gyr, CHUNK_SIZE - HEADER_SIZE);
+            
+                sendto(sock, sending_packet, CHUNK_SIZE, 0, (struct sockaddr *)&server_addr, server_addr_len);
+
+            
+                free_packet(gyr);
+                j++;
+            }
 
             char rx_buffer[128];
             int rx_len = receive_message(sock, rx_buffer, sizeof(rx_buffer));
@@ -629,68 +676,9 @@ void socket_udp(uint16_t msg_id, uint8_t transport_layer, uint8_t protocol_id, u
                 return;
             }
 
-            if (strcmp(rx_buffer, "Todo bien.") != 0) break; 
-        }
-
-        free_packet(packet);
-
-        char* sending_packet = (char*)malloc(1012);
-
-        char* header = create_header(&msg_id, &protocol_id, &transport_layer, &msg_length);
-    
-        memcpy(sending_packet, header, HEADER_SIZE);
-
-        free_packet(header);
-
-        int i = 0;
-        int j = 0;
-        while(i < 4){
-            while(j < 4){
-                char* acc = accelerate();
-                memcpy(sending_packet + 12, acc, CHUNK_SIZE - HEADER_SIZE);
-                while(true){
-                    sendto(sock, sending_packet, CHUNK_SIZE, 0, (struct sockaddr *)&server_addr, server_addr_len);
-
-                    char rx_buffer[128];
-                    int rx_len = receive_message(sock, rx_buffer, sizeof(rx_buffer));
-                    if (rx_len < 0) {
-                        close(sock);
-                        return;
-                    }
-
-                    if (strcmp(rx_buffer, "Todo bien.") != 0) break; 
-                }
-                free_packet(acc);
-                j++;
-            }
-            i++;
-        }
-
-        i = 0;
-        j = 0;
-        while(i < 4){
-            while(j < 4){
-                char* gyr = gyroscope();
-                memcpy(sending_packet + 12, gyr, CHUNK_SIZE - HEADER_SIZE);
-                while(true){
-                    sendto(sock, sending_packet, CHUNK_SIZE, 0, (struct sockaddr *)&server_addr, server_addr_len);
-
-                    char rx_buffer[128];
-                    int rx_len = receive_message(sock, rx_buffer, sizeof(rx_buffer));
-                    if (rx_len < 0) {
-                        close(sock);
-                        return;
-                    }
-
-                    if (strcmp(rx_buffer, "Todo bien.") != 0) break; 
-                }
-                free_packet(gyr);
-                j++;
-            }
-            i++;
+            if (strcmp(rx_buffer, "tabien") == 0) break; 
         }
     }
-
     close(sock);
 }
 
