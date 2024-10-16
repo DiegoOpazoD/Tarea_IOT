@@ -111,6 +111,10 @@ class ESP_MSG:
             gyr_y = body[32015:40015]
             gyr_z = body[40015:48015]
             
+
+            print("Protocolo 4 parseando : ")
+
+
             datos['batt_level'] = struct.unpack('<B', batt_level)[0]  
             datos['temperature'] = struct.unpack('<B', temp)[0]      
             datos['pressure'] = struct.unpack('<I', press)[0]       
@@ -118,12 +122,27 @@ class ESP_MSG:
             datos['CO'] = struct.unpack('<f', co)[0]
 
             ######### revisar aca el unpack de float* #################
-            datos['acc_x'] = struct.unpack('<f',acc_x)[0]
-            datos['acc_y'] = struct.unpack('<f',acc_y)[0]
-            datos['acc_z'] = struct.unpack('<f',acc_z)[0]
-            datos['gyr_x'] = struct.unpack('<f',gyr_x)[0]
-            datos['gyr_y'] = struct.unpack('<f',gyr_y)[0]
-            datos['gyr_z'] = struct.unpack('<f',gyr_z)[0]
+            lista_arrays = ['acc_x','acc_y','acc_z','gyr_x','gyr_y','gyr_z']
+            
+            for valor in lista_arrays:
+                print(f"parseando array de: {valor}")
+                data_de_array = locals()[valor]
+                array = []
+                print("armando array para valor ")
+                #print(f"data sacada de locals : {data_de_array}")
+                for i in range(2000):
+                    offset = 4*(i)
+                    array.append(struct.unpack('<f',data_de_array[0+offset:4+offset])[0])
+                    #print(f"insertando a array: {data_de_array[0+offset:4+offset]} ")
+                    #print(f"lo que se inserta parseado: { struct.unpack('<f',data_de_array[0+offset:4+offset])[0]}")
+                datos[valor] = array
+                
+            #datos['acc_x'] = struct.unpack('<2000f',acc_x)[0]
+            #datos['acc_y'] = struct.unpack('<2000f',acc_y)[0]
+            #datos['acc_z'] = struct.unpack('<2000f',acc_z)[0]
+            #datos['gyr_x'] = struct.unpack('<2000f',gyr_x)[0]
+            #datos['gyr_y'] = struct.unpack('<2000f',gyr_y)[0]
+            #datos['gyr_z'] = struct.unpack('<2000f',gyr_z)[0]
 
             
         return datos

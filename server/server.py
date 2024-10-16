@@ -47,11 +47,18 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 
 
                     solicita_config = True
+
+                    respuesta_input = input("continuar la comunicacion y enviar la configuracion a cliente : ")
+                    if respuesta_input.lower() != "si":
+                        continue
+
+                    
                     id_conf = obtener_id_conf_activa(conexion_db)
                     configuracion = obtener_protocolo(conexion_db,id_conf)
                     
                     if configuracion:
                         print(f"obtuve configuracion: {configuracion}")
+                        
                         print("enviando mensaje con configuracion a cliente")
                         capa_transporte , protocolo = configuracion
                         conexion_esp = ESP_CONN(capa_transporte,mac_recibida)
@@ -63,7 +70,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     capa_transporte , protocolo = configuracion
                     #conexion_esp = ESP_CONN(capa_transporte,mac_recibida)
                     mensaje_datos = conexion_esp.obtener_mensaje_datos()
-                    print(f"Mensaje recibido sin cambiar nada : {mensaje_datos}")
+                    #print(f"Mensaje recibido sin cambiar nada : {mensaje_datos}")
 
                     msg = ESP_MSG(mensaje_datos)
                     print(f"Mensaje recibido pasado por parse : {msg}")

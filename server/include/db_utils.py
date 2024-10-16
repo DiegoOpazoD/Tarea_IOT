@@ -39,7 +39,7 @@ def desconectar_db(conexion, cursor=None):
     '''
     if cursor:
         cursor.close()
-        print("Cursor cerrado.")
+        #print("Cursor cerrado.")
 
     if conexion:
         conexion.close()
@@ -70,7 +70,7 @@ def obtener_id_conf_activa(conexion_db):
     finally:
         if cursor:
             cursor.close()
-            print("Cursor cerrado.")
+            #print("Cursor cerrado.")
 
 
 def obtener_last_msg_id(conexion_db):
@@ -97,7 +97,7 @@ def obtener_last_msg_id(conexion_db):
     finally:
         if cursor:
             cursor.close()
-            print("Cursor cerrado.")
+            #print("Cursor cerrado.")
 
 
 def armar_header(device_mac, msg_id, protocol_id, transport_layer, body_length):
@@ -139,7 +139,7 @@ def obtener_protocolo(conexion_db, id_conf):
     finally:
         if cursor:
             cursor.close()
-            print("Cursor cerrado.")
+            #print("Cursor cerrado.")
 
 
 def guardar_dispositivo(mac_add,conexion_db):
@@ -173,7 +173,7 @@ def guardar_dispositivo(mac_add,conexion_db):
     finally:
         if cursor:
             cursor.close()
-            print("Cursor cerrado.")
+            #print("Cursor cerrado.")
 
 
 def guardar_log(device_id, msg_id, protocol_id, transport_layer, length, conexion_db):
@@ -204,7 +204,7 @@ def guardar_log(device_id, msg_id, protocol_id, transport_layer, length, conexio
     finally:
         if cursor:
             cursor.close()
-            print("Cursor cerrado.")
+            #print("Cursor cerrado.")
 
 
 def guardar_datos_db(conexion_db,packet_id, data ):
@@ -271,7 +271,7 @@ def guardar_datos_db(conexion_db,packet_id, data ):
     finally:
         if cursor:
             cursor.close()
-            print("Cursor cerrado.")
+            #print("Cursor cerrado.")
 
 
 def enviar_configuracion(conn, configuracion,conexion_db):
@@ -281,7 +281,6 @@ def enviar_configuracion(conn, configuracion,conexion_db):
     capa_transporte , protocolo = configuracion
     capa_transporte_id = 0
     msg_id = obtener_last_msg_id(conexion_db)
-
     if capa_transporte == "tcp":
         capa_transporte_id = 0
     elif capa_transporte == "udp":
@@ -290,7 +289,7 @@ def enviar_configuracion(conn, configuracion,conexion_db):
         print(f"error capa transporte invalida no es tcp ni udp : {capa_transporte}")
         return
 
-    mensaje = f"{msg_id}{capa_transporte_id}{protocolo}"    
+    mensaje = f"{capa_transporte_id}{protocolo}{msg_id}#"    
     print(f"enviando mensaje configuracion : {mensaje}")
     conn.sendall(mensaje.encode('utf-8'))    
     print(f"Configuración enviada: {mensaje}")
@@ -313,3 +312,4 @@ def obtener_mensaje_datos(conn,transport_layer):
     except Exception as e:
         print(f"Error al recibir el mensaje: {e}")
         return None
+
