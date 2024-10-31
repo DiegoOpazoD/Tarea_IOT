@@ -1,6 +1,7 @@
 import json
 import psycopg2
-
+import asyncio
+from bleak import BleakClient
 
 def cargar_config_db():
     '''
@@ -274,9 +275,9 @@ def guardar_datos_db(conexion_db,packet_id, data ):
             #print("Cursor cerrado.")
 
 
-def enviar_configuracion(conn, configuracion,conexion_db):
+async def enviar_configuracion(client,CHARACTERISTIC_UUID, configuracion,conexion_db):
     '''
-    Función que envia la configuración de vuelta a una ESP conectada.
+    Función que envia la configuración de vuelta a una ESP .
     '''
     capa_transporte , protocolo = configuracion
     capa_transporte_id = 0
@@ -291,7 +292,7 @@ def enviar_configuracion(conn, configuracion,conexion_db):
 
     mensaje = f"{capa_transporte_id}{protocolo}{msg_id}#"    
     print(f"enviando mensaje configuracion : {mensaje}")
-    conn.sendall(mensaje.encode('utf-8'))    
+    await client.write_gatt_char(CHARACTERISTIC_UUID,  mensaje.encode('utf-8'))
     print(f"Configuración enviada: {mensaje}")
 
 

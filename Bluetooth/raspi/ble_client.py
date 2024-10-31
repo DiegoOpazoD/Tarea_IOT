@@ -27,10 +27,18 @@ def get_bytes(byte_str):
 
 async def main(ADDRESS):
     async with BleakClient(ADDRESS) as client:
+        id_conf = obtener_id_conf_activa(conexion_db)
+        configuracion = obtener_protocolo(conexion_db,id_conf)
+                        
+        if configuracion:
+            print(f"obtuve configuracion: {configuracion}")
+            print("enviando mensaje con configuracion a servidor")
+            enviar_configuracion(client,CHARACTERISTIC_UUID,configuracion,conexion_db)
+
         # Pedimos un paquete a esa caracteristica
-        char_value = await client.read_gatt_char(CHARACTERISTIC_UUID)
-        print(get_bytes(char_value))
+        #char_value = await client.read_gatt_char(CHARACTERISTIC_UUID)
+        #print(get_bytes(char_value))
         # Luego podemos escribir en la caracteristica
-        await client.write_gatt_char(CHARACTERISTIC_UUID, b"\x01\x00")
+        #await client.write_gatt_char(CHARACTERISTIC_UUID, b"\x01\x00")
 
 asyncio.run(main(ADDRESS))
