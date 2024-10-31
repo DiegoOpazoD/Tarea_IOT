@@ -35,6 +35,209 @@
 
 #include "sdkconfig.h"
 
+
+
+
+////////////////////////////////////////////////////////////////////// PACKETS //////////////////////////////////////////////////////////////////////
+
+
+void initialize_random(uint64_t time) {
+    srand(time);
+}
+
+/**
+ * Function that generates a random integer based on lower and upper bounds.
+ */
+int rand_int(int lower_bound, int upper_bound){
+    return rand() % (upper_bound - lower_bound + 1) + lower_bound;
+}
+
+/**
+ * Function that generates a random float based on lower and upper bounds.
+ */
+float rand_float( float lower_bound, float upper_bound ){
+    float scale = (float)rand() / (float)RAND_MAX; 
+    return lower_bound + scale * ( upper_bound - lower_bound );      
+}
+/**
+ * Getter for the mac address on an ESP.
+ */
+void get_mac(uint8_t* baseMac) {
+    esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, baseMac);
+    if (ret == ESP_OK) {
+        printf("%02x:%02x:%02x:%02x:%02x:%02x\n",
+                    baseMac[0], baseMac[1], baseMac[2],
+                    baseMac[3], baseMac[4], baseMac[5]);
+    } else {
+        printf("Failed to read MAC address");
+    }
+}
+
+
+/**
+ * Function that gets used to free a certain packet.
+ */
+void free_packet(char* packet){
+    free(packet);
+}
+
+
+/**
+ * Function that facilitates the making of a header.
+ */
+char* create_header(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_layer, uint16_t* msg_length){
+
+    ESP_LOGI(TAG,"antes del malloc");
+    ESP_LOGI(TAG, "%lu", esp_get_free_heap_size());
+
+    char* res = (char*) malloc(12);
+
+    if (res == NULL) {
+        ESP_LOGI(TAG,"Error de memoria!");  
+    }    
+
+    ESP_LOGI(TAG, "%lu", esp_get_free_heap_size());
+
+    ESP_LOGI(TAG,"paso malloc");
+    uint8_t baseMac[6];
+    ESP_LOGI(TAG,"paso basemac");
+    get_mac(baseMac);
+    memcpy(res, baseMac, 6);
+    memcpy(res + 6, msg_id, 2);
+    memcpy(res + 8, protocol_id, 1);
+    memcpy(res + 9, transport_layer, 1);
+    memcpy(res + 10, msg_length, 2); 
+
+    return res;
+}
+
+
+/**
+ * Function that creates a packet based in the protocol_id given.
+ */
+char* create_packet(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_layer, uint16_t* msg_length){
+    uint8_t protocol_packet = *protocol_id;
+    char* header = create_header(msg_id, protocol_id, transport_layer, msg_length);
+    uint64_t time = esp_timer_get_time();
+    initialize_random(time);
+    uint8_t batt_level = rand_int(1,100);
+    char* packet = NULL;
+
+    if(protocol_packet == 0){
+        packet = (char*)malloc(16);
+
+        if (packet == NULL) {
+            ESP_LOGI(TAG,"Error de memoria!");
+            free_packet(header);
+            return NULL;
+        }        
+
+        ESP_LOGI(TAG, "%lu", esp_get_free_heap_size());
+
+        memcpy(packet, header, 12);
+        free_packet(header);
+        memcpy(packet + 12, &time, 4);
+    }
+    else if(protocol_packet == 1){
+
+        packet = (char*)malloc(17);
+
+        if (packet == NULL) {
+            ESP_LOGI(TAG,"Error de memoria!");
+            free_packet(header);
+            return NULL;
+        }
+
+        ESP_LOGI(TAG, "%lu", esp_get_free_heap_size());
+        
+        memcpy(packet, header, 12);
+        free_packet(header);
+        memcpy(packet + 12, &time, 4);
+        memcpy(packet + 16, &batt_level, 1);
+    }
+    else if(protocol_packet == 2){
+        uint8_t temp = rand_int(5,30);
+        uint32_t press = rand_int(1000, 1200); 
+        uint8_t hum = rand_int(30, 80);
+        float co = rand_float(30.0f, 200.0f);
+        ESP_LOGI(TAG,"malloc 2");
+        packet = (char*)malloc(27);
+        ESP_LOGI(TAG,"salio de malloc 2");
+
+        if (packet == NULL) {
+            ESP_LOGI(TAG,"Error de memoria!");
+            free_packet(header);
+            return NULL;
+        }
+
+        ESP_LOGI(TAG, "%lu", esp_get_free_heap_size());
+
+        memcpy(packet, header, 12);
+        free_packet(header);
+        memcpy(packet + 12, &time, 4);
+        memcpy(packet + 16, &batt_level, 1);
+        memcpy(packet + 17, &temp, 1);
+        memcpy(packet + 18, &press, 4);
+        memcpy(packet + 22, &hum, 1);
+        memcpy(packet + 23, &co, 4);
+    }
+    else if(protocol_packet == 3){
+        uint8_t temp = rand_int(5,30);
+        uint32_t press = rand_int(1000, 1200); 
+        uint8_t hum = rand_int(30, 80);
+        float co = rand_float(30.0f, 200.0f);
+        float amp_x = rand_float(0.0059f, 0.12f);
+        float amp_y = rand_float(0.0041f, 0.011f);
+        float amp_z = rand_float(0.008f, 0.15f);
+        float fre_x = rand_float(29.0f, 31.0f);
+        float fre_y = rand_float(59.0f, 61.0f);
+        float fre_z = rand_float(89.0f, 91.0f);
+        float rms = sqrtf(amp_x*amp_x+amp_y*amp_y+amp_z*amp_z);
+
+        packet = (char*)malloc(55);
+
+        if (packet == NULL) {
+            ESP_LOGI(TAG,"Error de memoria!");
+            free_packet(header);
+            return NULL;
+        }
+
+        ESP_LOGI(TAG, "%lu", esp_get_free_heap_size());
+
+        memcpy(packet, header, 12);
+        free_packet(header);
+        memcpy(packet + 12, &time, 4);
+        memcpy(packet + 16, &batt_level, 1);
+        memcpy(packet + 17, &temp, 1);
+        memcpy(packet + 18, &press, 4);
+        memcpy(packet + 22, &hum, 1);
+        memcpy(packet + 23, &co, 4);
+        memcpy(packet + 27, &amp_x, 4);
+        memcpy(packet + 31, &amp_y, 4);
+        memcpy(packet + 35, &amp_z, 4);
+        memcpy(packet + 39, &fre_x, 4);
+        memcpy(packet + 43, &fre_y, 4);
+        memcpy(packet + 47, &fre_z, 4);
+        memcpy(packet + 51, &rms, 4);
+    }
+  
+    return packet;
+}
+
+uint16_t get_message_length(uint8_t protocol_id) {
+    switch (protocol_id) {
+        case 0: return 4;
+        case 1: return 5;
+        case 2: return 15;
+        case 3: return 43;
+        case 4: return 48015; 
+        default: return 0;
+    }
+}
+
+/////////////////////////////////////////////////////////// GATTS ///////////////////////////////////////////////////////////////////////////
+
+
 #define GATTS_TAG "GATTS_DEMO"
 
 ///Declare the static function
