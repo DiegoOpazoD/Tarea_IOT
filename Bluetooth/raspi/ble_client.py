@@ -1,5 +1,8 @@
 import asyncio
+import time
 from bleak import BleakClient
+from include.db_utils import *
+from include.esp_msg import * 
 
 def convert_to_128bit_uuid(short_uuid):
     # Usada para convertir un UUID de 16 bits a 128 bits
@@ -11,6 +14,13 @@ def convert_to_128bit_uuid(short_uuid):
 
 ADDRESS = "3C:61:05:65:A6:3E"
 CHARACTERISTIC_UUID = convert_to_128bit_uuid(0xFF01) # Busquen este valor en el codigo de ejemplo de esp-idf
+
+conexion_db = conectar_db()
+while not conexion_db:
+    print("Base de datos no conectada, reintentando conexion")
+    time.sleep(3)
+    conexion_db = conectar_db()
+
 
 def get_bytes(byte_str):
     return ' '.join(format(byte, '02x') for byte in byte_str)
