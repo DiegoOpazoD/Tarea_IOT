@@ -205,7 +205,7 @@ char* create_packet(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_l
         ESP_LOGI(TAG, "%lu", esp_get_free_heap_size());
 
         memcpy(packet, header, 12);
-        free_packet(header);
+        free_packet(header);    
         memcpy(packet + 12, &time, 4);
         memcpy(packet + 16, &batt_level, 1);
         memcpy(packet + 17, &temp, 1);
