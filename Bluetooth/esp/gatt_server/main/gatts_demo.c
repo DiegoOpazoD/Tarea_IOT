@@ -36,7 +36,7 @@
 #include "sdkconfig.h"
 
 
-
+static const char* TAG = "GATTS";
 
 ////////////////////////////////////////////////////////////////////// PACKETS //////////////////////////////////////////////////////////////////////
 
@@ -234,6 +234,32 @@ uint16_t get_message_length(uint8_t protocol_id) {
         default: return 0;
     }
 }
+
+void get_config(uint16_t *msg_id, uint8_t *transport_layer, uint8_t *protocol_id, const uint8_t *data, size_t len) {
+
+    char msg[50];
+    memcpy(msg, data, len);
+    msg[len] = '\0'; 
+
+    *transport_layer = (uint8_t)(msg[0] - '0');
+    *protocol_id = (uint8_t)(msg[1] - '0');
+
+    int i = 2;
+    while (msg[i + 1] != '#' && i < len - 1) {
+        i++;
+    }
+    int length = i - 2 + 1;
+    char temp[length + 1];
+    strncpy(temp, &msg[2], length); 
+    temp[length] = '\0';
+
+    *msg_id = (uint16_t)atoi(temp);
+
+    ESP_LOGI(TAG, "Transport Layer: %d", *transport_layer);
+    ESP_LOGI(TAG, "Protocol ID: %d", *protocol_id);
+    ESP_LOGI(TAG, "Message ID: %d", *msg_id);
+}
+
 
 /////////////////////////////////////////////////////////// GATTS ///////////////////////////////////////////////////////////////////////////
 
@@ -555,17 +581,52 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
         break;
     case ESP_GATTS_READ_EVT: {
         ESP_LOGI(GATTS_TAG, "GATT_READ_EVT, conn_id %d, trans_id %" PRIu32 ", handle %d", param->read.conn_id, param->read.trans_id, param->read.handle);
-        esp_gatt_rsp_t rsp;
-        memset(&rsp, 0, sizeof(esp_gatt_rsp_t));
-        rsp.attr_value.handle = param->read.handle;
-        rsp.attr_value.len = 4;
-        rsp.attr_value.value[0] = 0xde;
-        rsp.attr_value.value[1] = 0xed;
-        rsp.attr_value.value[2] = 0xbe;
-        rsp.attr_value.value[3] = 0xef;
-        esp_ble_gatts_send_response(gatts_if, param->read.conn_id, param->read.trans_id,
-                                    ESP_GATT_OK, &rsp);
+        if (param->read.handle == gl_profile_tab[PROFILE_A_APP_ID].char_handle) {
+            if (param->read.len >= 1) {
+                if (param->read.value == NULL)
+                {
+                    esp_gatt_rsp_t error_response;
+                    char * msg = 'no hay config';
+                    ESP_LOGI(TAG, "error , No encontre nada al leer caracteristica:");
+                    error_response.attr_value.len = strlen(msg);
+                    resp.attr_value.value = (uint8_t*)msg; 
+                    esp_ble_gatts_send_response(gatts_if, param->read.conn_id, param->read.trans_id, ESP_GATT_ERROR, &error_response);
+                    break;
+                }
+                
+           
+                uint16_t msg_id = 5;
+                uint8_t transport_layer = 5;
+                uint8_t protocol_id = 5;
+                
+
+                get_config(&msg_id, &transport_layer, &protocol_id,param->read.value,param->read.len);
+
+                uint16_t msg_length = get_message_length(protocol_id);
+
+                ESP_LOGI(TAG, "MSG_ID: %u", msg_id);
+                ESP_LOGI(TAG, "TRANSPORT_LAYER: %u", transport_layer);
+                ESP_LOGI(TAG, "PROTOCOL_ID: %u", protocol_id);
+                ESP_LOGI(TAG, "MESSAGE_LENGTH: %u", msg_length);
+
+                char *packet = create_packet(&msg_id, &protocol_id, &transport_layer, NULL);
+                if (packet == NULL) {
+                    ESP_LOGI(TAG,"Error en la creación del paquete!");
+                    break;
+                }
+
+                esp_gatt_rsp_t resp;
+                resp.attr_value.len = msg_length; 
+                resp.attr_value.value = (uint8_t*)packet; 
+
+                esp_ble_gatts_send_response(gatts_if, param->read.conn_id, param->read.trans_id, ESP_GATT_OK, &resp);
+                free(packet);
+
+            }
+        }
+
         break;
+        
     }
     case ESP_GATTS_WRITE_EVT: {
         ESP_LOGI(GATTS_TAG, "GATT_WRITE_EVT, conn_id %d, trans_id %" PRIu32 ", handle %d", param->write.conn_id, param->write.trans_id, param->write.handle);
