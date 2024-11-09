@@ -7,7 +7,7 @@ def cargar_config_db():
     '''
     Función para cargar la configuración de la base de datos del archivo config.json.
     '''
-    with open('include/config.json', 'r') as config_file:
+    with open('./config.json', 'r') as config_file:
         return json.load(config_file)
 
 
@@ -210,7 +210,7 @@ def guardar_log(device_id, msg_id, protocol_id, transport_layer, length, conexio
 
 def guardar_datos_db(conexion_db,packet_id, data ):
     '''
-    Función para guardar los datos recibidos en un mensaje dentro de la tabla Data en la base de datos.
+    Función para guardar los datos recibidos en un mensaje dentro de la tabla data en la base de datos.
     '''
     cursor = None
     try:
@@ -314,3 +314,178 @@ def obtener_mensaje_datos(conn,transport_layer):
         print(f"Error al recibir el mensaje: {e}")
         return None
 
+
+
+def get_batt_history(conexion_db):
+    '''
+    Función que devuelve todos los registros de historia de batería.
+    '''
+    cursor = conexion_db.cursor()
+    query = "SELECT timestamp,batt_level FROM data"
+    cursor.execute(query)
+    data = cursor.fetchall()
+
+    times = [x[0] for x in data]
+    batt_levels = [x[1] for x in data]
+    return times, batt_levels
+
+def get_temp_history(conexion_db):
+    '''
+    Función que devuelve todos los registros de historia de temperatura.
+    '''
+    cursor = conexion_db.cursor()
+    query = "SELECT timestamp,temp FROM data"
+    cursor.execute(query)
+    data = cursor.fetchall()
+
+    times = [x[0] for x in data]
+    temps = [x[1] for x in data]
+    return times, temps
+
+def get_pres_history(conexion_db):
+    '''
+    Función que devuelve todos los registros de historia de presión.
+    '''
+    cursor = conexion_db.cursor()
+    query = "SELECT timestamp,pres FROM data"
+    cursor.execute(query)
+    data = cursor.fetchall()
+
+    times = [x[0] for x in data]
+    pres = [x[1] for x in data]
+    return times, pres
+
+def get_hum_history(conexion_db):
+    '''
+    Función que devuelve todos los registros de historia de humedad.
+    '''
+    cursor = conexion_db.cursor()
+    query = "SELECT timestamp,hum FROM data"
+    cursor.execute(query)
+    data = cursor.fetchall()
+
+    times = [x[0] for x in data]
+    hum = [x[1] for x in data]
+    return times, hum
+
+def get_co_history(conexion_db):
+    '''
+    Función que devuelve todos los registros de historia de CO.
+    '''
+    cursor = conexion_db.cursor()
+    query = "SELECT timestamp,co FROM data"
+    cursor.execute(query)
+    data = cursor.fetchall()
+
+    times = [x[0] for x in data]
+    co = [x[1] for x in data]
+    return times, co
+
+def get_amp_x_history(conexion_db):
+    '''
+    Función que devuelve todos los registros de historia de amplitud en x.
+    '''
+    cursor = conexion_db.cursor()
+    query = "SELECT timestamp,amp_x FROM data"
+    cursor.execute(query)
+    data = cursor.fetchall()
+
+    times = [x[0] for x in data]
+    amp_x = [x[1] for x in data]
+    return times, amp_x
+
+def get_amp_y_history(conexion_db):
+    '''
+    Función que devuelve todos los registros de historia de amplitud en y.
+    '''
+    cursor = conexion_db.cursor()
+    query = "SELECT timestamp,amp_y FROM data"
+    cursor.execute(query)
+    data = cursor.fetchall()
+
+    times = [x[0] for x in data]
+    amp_y = [x[1] for x in data]
+    return times, amp_y
+
+def get_amp_z_history(conexion_db):
+    '''
+    Función que devuelve todos los registros de historia de amplitud en z.
+    '''
+    cursor = conexion_db.cursor()
+    query = "SELECT timestamp,amp_z FROM data"
+    cursor.execute(query)
+    data = cursor.fetchall()
+
+    times = [x[0] for x in data]
+    amp_z = [x[1] for x in data]
+    return times, amp_z
+
+def get_freq_x_history(conexion_db):
+    '''
+    Función que devuelve todos los registros de historia de frecuencia en x.
+    '''
+    cursor = conexion_db.cursor()
+    query = "SELECT timestamp,fre_x FROM data"
+    cursor.execute(query)
+    data = cursor.fetchall()
+
+    times = [x[0] for x in data]
+    freq_x = [x[1] for x in data]
+    return times, freq_x
+
+def get_freq_y_history(conexion_db):
+    '''
+    Función que devuelve todos los registros de historia de frecuencia en y.
+    '''
+    cursor = conexion_db.cursor()
+    query = "SELECT timestamp,fre_y FROM data"
+    cursor.execute(query)
+    data = cursor.fetchall()
+
+    times = [x[0] for x in data]
+    freq_y = [x[1] for x in data]
+    return times, freq_y
+
+def get_freq_z_history(conexion_db):
+    '''
+    Función que devuelve todos los registros de historia de frecuencia en z.
+    '''
+    cursor = conexion_db.cursor()
+    query = "SELECT timestamp,fre_z FROM data"
+    cursor.execute(query)
+    data = cursor.fetchall()
+
+    times = [x[0] for x in data]
+    freq_z = [x[1] for x in data]
+    return times, freq_z
+
+def get_rms_history(conexion_db):
+    '''
+    Función que devuelve todos los registros de historia de RMS.
+    '''
+    cursor = conexion_db.cursor()
+    query = "SELECT timestamp,rms FROM data"
+    cursor.execute(query)
+    data = cursor.fetchall()
+
+    times = [x[0] for x in data]
+    rms = [x[1] for x in data]
+    return times, rms
+
+def update_conf_activa(conexion_db, id_conf_activa):
+    '''
+    Función que actualiza la conf activa en la base de datos.
+    '''
+    cursor = None
+    try:
+        cursor = conexion_db.cursor()
+        query = "UPDATE ConfActiva SET id_conf_activa = %s WHERE id_conf_activa IS NOT NULL;"
+        cursor.execute(query, (id_conf_activa,))
+        conexion_db.commit()
+    except Exception as e:
+        print(f"Error al actualizar conf activa: {e}")
+        return False
+    finally:
+        if cursor:
+            cursor.close()
+    return True

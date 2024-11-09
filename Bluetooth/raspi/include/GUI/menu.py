@@ -9,6 +9,8 @@
 
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+import matplotlib.pyplot as plt
+from ..db_utils import *
 
 
 class Ui_MainWindow(object):
@@ -140,6 +142,52 @@ class Ui_MainWindow(object):
 
     def goGraph(self):
         self.stackedWidget.setCurrentIndex(1)
+
+    def loadGraph(self, type: str):
+        match type:
+            case "batt":
+                times, values = get_batt_history(self.conexion_db)
+                self.plot_graph(times, values, "Battery Level")
+            case "temp":
+                times, values = get_temp_history(self.conexion_db)
+                self.plot_graph(times, values, "Temperature")
+            case "pres":
+                times, values = get_pres_history(self.conexion_db)
+                self.plot_graph(times, values, "Pressure")
+            case "hum":
+                times, values = get_hum_history(self.conexion_db)
+                self.plot_graph(times, values, "Humidity")
+            case "co":
+                times, values = get_co_history(self.conexion_db)
+                self.plot_graph(times, values, "CO")
+            case "amp_x":
+                times, values = get_amp_x_history(self.conexion_db)
+                self.plot_graph(times, values, "X Amplitude")
+            case "amp_y":
+                times, values = get_amp_y_history(self.conexion_db)
+                self.plot_graph(times, values, "Y Amplitude")
+            case "amp_z":
+                times, values = get_amp_z_history(self.conexion_db)
+                self.plot_graph(times, values, "Z Amplitude")
+            case "freq_x":
+                times, values = get_freq_x_history(self.conexion_db)
+                self.plot_graph(times, values, "X Frequency")
+            case "freq_y":
+                times, values = get_freq_y_history(self.conexion_db)
+                self.plot_graph(times, values, "Y Frequency")
+            case "freq_z":
+                times, values = get_freq_z_history(self.conexion_db)
+                self.plot_graph(times, values, "Z Frequency")
+            case "rms":
+                times, values = get_rms_history(self.conexion_db)
+                self.plot_graph(times, values, "RMS")
+
+    def plot_graph(self, times, values, title):
+        plt.plot(times, values)
+        plt.xlabel('Time')
+        plt.ylabel('Value')
+        plt.title(title)
+        plt.show()
 
 if __name__ == "__main__":
     import sys
