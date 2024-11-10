@@ -341,3 +341,12 @@ class Ui_MainWindow(object):
     
     def disconnectBluetooth(self):
         update_gui_conf(0)
+
+
+if __name__ == "__main__":
+    import sys
+    app = QtWidgets.QApplication(sys.argv)
+    MainWindow = QtWidgets.QMainWindow()
+    ui = Ui_MainWindow(MainWindow)
+    MainWindow.show()
+    sys.exit(app.exec_())
