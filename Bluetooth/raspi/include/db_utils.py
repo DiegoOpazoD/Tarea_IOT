@@ -321,7 +321,7 @@ def get_batt_history(conexion_db):
     Función que devuelve todos los registros de historia de batería.
     '''
     cursor = conexion_db.cursor()
-    query = "SELECT timestamp,batt_level FROM data"
+    query = "SELECT timestamp,batt_level FROM data ORDER BY timestamp "
     cursor.execute(query)
     data = cursor.fetchall()
 
@@ -484,6 +484,24 @@ def update_conf_activa(conexion_db, id_conf_activa):
         conexion_db.commit()
     except Exception as e:
         print(f"Error al actualizar conf activa: {e}")
+        return False
+    finally:
+        if cursor:
+            cursor.close()
+    return True
+
+def update_gui_conf(conexion_db, gui_current_conf):
+    '''
+    Función que actualiza la conf de la gui en la base de datos.
+    '''
+    cursor = None
+    try:
+        cursor = conexion_db.cursor()
+        query = "UPDATE gui_conf SET gui_current_conf = %s WHERE id IS NOT NULL;"
+        cursor.execute(query, (gui_current_conf,))
+        conexion_db.commit()
+    except Exception as e:
+        print(f"Error al actualizar conf de la gui: {e}")
         return False
     finally:
         if cursor:
