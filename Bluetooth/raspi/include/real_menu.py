@@ -215,6 +215,8 @@ class Ui_MainWindow(object):
         self.batteryButton.clicked.connect(lambda:self.loadGraph("batt"))
         self.editProtocolButton.clicked.connect(self.goEdit)
         self.updateButton.clicked.connect(self.updateConfactiva)
+        self.connectBluetooth.clicked.connect(self.connectToBluetooth)
+        self.disconnectBluetooth.clicked.connect(self.disconnectFromBluetooth)
 
         self.retranslateUi(MainWindow)
         self.stackedWidget.setCurrentIndex(0)
@@ -336,11 +338,11 @@ class Ui_MainWindow(object):
         self.graph_layout.addWidget(chart)
 
 
-    def connectBluetooth(self):
-        update_gui_conf(1)
+    def connectToBluetooth(self):
+        update_gui_conf(self.conexion_db,1)
     
-    def disconnectBluetooth(self):
-        update_gui_conf(0)
+    def disconnectFromBluetooth(self):
+        update_gui_conf(self.conexion_db,0)
 
 
 if __name__ == "__main__":

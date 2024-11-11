@@ -15,7 +15,7 @@ def convert_to_128bit_uuid(short_uuid):
     short_uuid_hex = "{:04X}".format(short_uuid)
     return base_uuid[:4] + short_uuid_hex + base_uuid[8:]
 
-ADDRESS = "3C:61:05:65:A6:3E"
+ADDRESS = "84:CC:A8:5F:21:8A"
 CHARACTERISTIC_UUID = convert_to_128bit_uuid(0xFF01) # Busquen este valor en el codigo de ejemplo de esp-idf
 
 conexion_db = conectar_db()
@@ -29,27 +29,53 @@ def get_bytes(byte_str):
     return ' '.join(format(byte, '02x') for byte in byte_str)
 
 def enviar_configuracion(client, characteristic, conf):
-    await client.write_gatt_char(characteristic, conf)
+    #await client.write_gatt_char(characteristic, conf)
     return
 
-async def main(ADDRESS):
+def enviar_configuracion_v2(conf,conexion_db):
+    capa_transporte, protocolo = conf
+    capa_transporte_id = '0'
+    msg_id = obtener_last_msg_id(conexion_db)
+
+    msg = f"{capa_transporte_id}{protocolo}{msg_id}#"
+    print(msg)
+    msg_encoded = msg.encode('utf-8')
+    return msg_encoded
+
+async def main(ADDRESS,current_conf):
     async with BleakClient(ADDRESS) as client:
+        print("se conecto con el dispositivo Bluetooth")
         while True:
             id_conf = obtener_id_conf_activa(conexion_db)
             configuracion = obtener_protocolo(conexion_db,id_conf)
+            gui_conf = get_gui_config(conexion_db)[0][0]
+            print(f"configuracion gui: {gui_conf}")
 
             #para cambiar esto hacerlo en el codigo de la GUI, que de ahi se modifique la base de datos
-            current_conf = configuracion
+            #current_conf = configuracion
                             
-            if configuracion == "stop": #pasarle stop a la db para que se detenga, y para reiniciar llamar al archivo desde GUI
-                break
-            elif configuracion != current_conf:
+            if gui_conf == 0: #pasarle stop a la db para que se detenga, y para reiniciar llamar al archivo desde GUI
+                while gui_conf != 1:
+                    time.sleep(3)
+                    print("en el loop")
+                    gui_conf = get_gui_config(conexion_db)[0][0]
+                
+                id_conf = obtener_id_conf_activa(conexion_db)
+                configuracion = obtener_protocolo(conexion_db,id_conf)
+
+            if configuracion != current_conf:
+                current_conf = configuracion
                 print(f"obtuve configuracion nueva: {configuracion}")
                 print("enviando mensaje con nueva configuracion a servidor")
-                enviar_configuracion(client,CHARACTERISTIC_UUID,configuracion)
+                
+                conf_to_send = enviar_configuracion_v2(configuracion,conexion_db)
+                print(f"se manda mensaje: {conf_to_send}")
+                await client.write_gatt_char(CHARACTERISTIC_UUID,conf_to_send)
 
             #Pedimos un paquete a esa caracteristica
+            print("pedimos un mensaje")
             char_value = await client.read_gatt_char(CHARACTERISTIC_UUID)
+            print("msg recivido")
             print(get_bytes(char_value))
             
             #se guarda el msg en la estructura ESP
@@ -58,6 +84,7 @@ async def main(ADDRESS):
             #el msg se guarda en la base de datos
             msg.save_on_db(conexion_db)
 
-            #tal vez poner un timer que no se tan rapido??
+            #tal vez poner un timer
+            time.sleep(3)
 
-asyncio.run(main(ADDRESS))
+asyncio.run(main(ADDRESS,current_conf))

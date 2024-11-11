@@ -497,7 +497,7 @@ def update_gui_conf(conexion_db, gui_current_conf):
     cursor = None
     try:
         cursor = conexion_db.cursor()
-        query = "UPDATE gui_conf SET gui_current_conf = %s WHERE id IS NOT NULL;"
+        query = "UPDATE gui_conf SET gui_current_conf = %s WHERE gui_current_conf IS NOT NULL;"
         cursor.execute(query, (gui_current_conf,))
         conexion_db.commit()
     except Exception as e:
@@ -507,3 +507,11 @@ def update_gui_conf(conexion_db, gui_current_conf):
         if cursor:
             cursor.close()
     return True
+
+def get_gui_config(conexion_db):
+    cursor = conexion_db.cursor()
+    query = "SELEC gui_current_conf FROM gui_conf"
+    cursor.execute(query)
+    data = cursor.fetchall()
+    
+    return data
