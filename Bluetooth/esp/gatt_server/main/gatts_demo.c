@@ -296,6 +296,11 @@ void get_config(uint16_t *msg_id, uint8_t *transport_layer, uint8_t *protocol_id
 
 }
 
+void handle_deep_sleep() {
+    esp_sleep_enable_timer_wakeup(1000000);
+    esp_deep_sleep_start();
+}
+
 /////////////////////////////////////////////////////////// GATTS ///////////////////////////////////////////////////////////////////////////
 
 
@@ -610,6 +615,7 @@ void manejo_read_event(esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param){
             if (transport_layer == 0 || stop)
             {
                 stop = 0;
+                handle_deep_sleep();
                 break;
             }
             
