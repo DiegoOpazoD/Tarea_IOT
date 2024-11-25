@@ -611,11 +611,8 @@ void manejo_read_event(esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param){
         msg_id++;
         if (transport_layer == 0)
         {
-            stop = 0;
             handle_deep_sleep();
-            break;
         }
-        
     }
     else{
         esp_gatt_rsp_t error_response;
