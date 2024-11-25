@@ -5,7 +5,9 @@ from include.db_utils import *
 from include.esp_msg import * 
 
 #conf actual
-current_conf = "a"
+current_conf = {"84:CC:A8:5F:21:8A":"a",
+                "30:C6:F7:29:B1:32":"a"}
+#current_conf = "a"
 
 def convert_to_128bit_uuid(short_uuid):
     # Usada para convertir un UUID de 16 bits a 128 bits
@@ -46,76 +48,107 @@ def enviar_configuracion_v2(conf,conexion_db):
 
 async def main(ADDRESS,current_conf):
     while True:
-        async with BleakClient(ADDRESS) as client:
-            print("se conecto con el dispositivo Bluetooth")
-            while True:
-                id_conf = obtener_id_conf_activa(conexion_db)
-                configuracion = obtener_protocolo(conexion_db,id_conf)
-                gui_conf = get_gui_config(conexion_db)[0][0]
-                print(f"configuracion gui: {gui_conf}")
+        print("intentando conectar...")
+        try:
+            async with BleakClient(ADDRESS) as client:
+                print("se conecto con el dispositivo Bluetooth")
+                while True:
+                    #revisar el ADDRES si este cambio salir de aca para que se conecte de 0 de nuevo
+                    # new_addres = cosa_bd
+                    # if new_addres != ADDRESS
+                    #   ADDRESS = new_addres
+                    #   break
+                    # 
+                    new_address = get_esp_mac(conexion_db)
+                    if new_address != ADDRESS:
+                        ADDRESS = new_address
+                        break    
 
-                #para cambiar esto hacerlo en el codigo de la GUI, que de ahi se modifique la base de datos
-                #current_conf = configuracion
-                            
-                if gui_conf == 0: #pasarle stop a la db para que se detenga, y para reiniciar llamar al archivo desde GUI
-                    while gui_conf != 1:
-                        time.sleep(3)
-                        print("en el loop")
-                        gui_conf = get_gui_config(conexion_db)[0][0]
-                
                     id_conf = obtener_id_conf_activa(conexion_db)
                     configuracion = obtener_protocolo(conexion_db,id_conf)
+                    gui_conf = get_gui_config(conexion_db)[0][0]
+                    print(f"configuracion gui: {gui_conf}")
 
-                if configuracion != current_conf:
-                    current_conf, comunication_type = configuracion
-                    print(f"obtuve configuracion nueva: {configuracion}")
-                    print("enviando mensaje con nueva configuracion a servidor")
+                    #para cambiar esto hacerlo en el codigo de la GUI, que de ahi se modifique la base de datos
+                    #current_conf = configuracion
+                            
+                    if gui_conf == 0: #pasarle stop a la db para que se detenga, y para reiniciar llamar al archivo desde GUI
+                        while gui_conf != 1:
+                            time.sleep(3)
+                            print("en el loop")
+                            gui_conf = get_gui_config(conexion_db)[0][0]
+
+                        # como puede ser que la comunicaion pare aca hay que revisar que no se cambio el address
+
+                        #revisar el ADDRES si este cambio salir de aca para que se conecte de 0 de nuevo
+                        # new_addres = cosa_bd
+                        # if new_addres != ADDRESS
+                        #   ADDRESS = new_addres
+                        #   break
+                        #
+                        new_address = get_esp_mac(conexion_db)
+                        if new_address != ADDRESS:
+                            ADDRESS = new_address
+                            break
+
+                        id_conf = obtener_id_conf_activa(conexion_db)
+                        configuracion = obtener_protocolo(conexion_db,id_conf)  
+
+                    #revisar el diccionario con las dos conf que esten guardadas elegir el addres de ahora
+                    if configuracion != current_conf.get(ADDRESS):
+                        current_conf[ADDRESS], comunication_type = configuracion
+                        print(f"obtuve configuracion nueva: {configuracion}")
+                        print("enviando mensaje con nueva configuracion a servidor")
                 
-                    conf_to_send = enviar_configuracion_v2(configuracion,conexion_db)
-                    print(f"se manda mensaje: {conf_to_send}")
-                    await client.write_gatt_char(CHARACTERISTIC_UUID,conf_to_send)
+                        conf_to_send = enviar_configuracion_v2(configuracion,conexion_db)
+                        print(f"se manda mensaje: {conf_to_send}")
+                        await client.write_gatt_char(CHARACTERISTIC_UUID,conf_to_send)
 
-                # si comunication_type es 0 significa que la comunicacion es continua
-                if comunication_type == '0':
-                    #Pedimos un paquete a esa caracteristica
-                    print("pedimos un mensaje")
-                    char_value = await client.read_gatt_char(CHARACTERISTIC_UUID)
-                    print("msg recivido")
-                    print(get_bytes(char_value))
+                    # si comunication_type es 0 significa que la comunicacion es continua
+                    if comunication_type == '0':
+                        #Pedimos un paquete a esa caracteristica
+                        print("pedimos un mensaje")
+                        char_value = await client.read_gatt_char(CHARACTERISTIC_UUID)
+                        print("msg recivido")
+                        print(get_bytes(char_value))
             
-                    #se guarda el msg en la estructura ESP
-                    msg = ESP_MSG(char_value)
-                    print(f"Mensaje recibido pasado por parse : {char_value}")
-                    #el msg se guarda en la base de datos
-                    msg.save_on_db(conexion_db)
+                        #se guarda el msg en la estructura ESP
+                        msg = ESP_MSG(char_value)
+                        print(f"Mensaje recibido pasado por parse : {char_value}")
+                        #el msg se guarda en la base de datos
+                        msg.save_on_db(conexion_db)
 
-                    #tal vez poner un timer
-                    time.sleep(3)
+                        #tal vez poner un timer
+                        time.sleep(3)
             
-                # si comunication_tpye es 1 significa que la comunicacion es discontinua
-                elif comunication_type == '1':
-                    # se recive el mensaje por primera vez se comporta igual que antes
+                    # si comunication_tpye es 1 significa que la comunicacion es discontinua
+                    elif comunication_type == '1':
+                        # se recive el mensaje por primera vez se comporta igual que antes
         
-                    #Pedimos un paquete a esa caracteristica
-                    print("pedimos un mensaje")
-                    char_value = await client.read_gatt_char(CHARACTERISTIC_UUID)
-                    print("msg recivido")
-                    print(get_bytes(char_value))
+                        #Pedimos un paquete a esa caracteristica
+                        print("pedimos un mensaje")
+                        char_value = await client.read_gatt_char(CHARACTERISTIC_UUID)
+                        print("msg recivido")
+                        print(get_bytes(char_value))
 
-                    #se guarda el msg en la estructura ESP
-                    msg = ESP_MSG(char_value)
-                    print(f"Mensaje recibido pasado por parse : {char_value}")
-                    #el msg se guarda en la base de datos
-                    msg.save_on_db(conexion_db)
+                        #se guarda el msg en la estructura ESP
+                        msg = ESP_MSG(char_value)
+                        print(f"Mensaje recibido pasado por parse : {char_value}")
+                        #el msg se guarda en la base de datos
+                        msg.save_on_db(conexion_db)
 
-                    time.sleep(3)
+                        time.sleep(3)
 
 
-                    #salimos de este while
-                    break
+                        #salimos de este while
+                        break
+        except:
+            print("error al conectar")
+            time.sleep(1)
             
-            #salimos tambien del bloque asyn BleackClient asi que se desconecta de la esp
-            print("se desconecta con el dispositivo bluetooth")
+            
+        #salimos tambien del bloque asyn BleackClient asi que se desconecta de la esp
+        print("se desconecta con el dispositivo bluetooth")
 
 
 asyncio.run(main(ADDRESS,current_conf))
