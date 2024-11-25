@@ -26,6 +26,7 @@
 #include "nvs_flash.h"
 #include "esp_bt.h"
 
+
 #include "esp_gap_ble_api.h"
 #include "esp_gatts_api.h"
 #include "esp_bt_defs.h"
@@ -33,10 +34,20 @@
 #include "esp_bt_device.h"
 #include "esp_gatt_common_api.h"
 
+#include "esp_timer.h"
+#include "math.h"
+
 #include "sdkconfig.h"
 
 
 static const char* TAG = "GATTS";
+
+//uint8_t char_value[20] = {0}; 
+uint16_t msg_id = 5;
+uint8_t transport_layer = 5;
+uint8_t protocol_id = 5;
+
+
 
 ////////////////////////////////////////////////////////////////////// PACKETS //////////////////////////////////////////////////////////////////////
 
@@ -63,13 +74,14 @@ float rand_float( float lower_bound, float upper_bound ){
  * Getter for the mac address on an ESP.
  */
 void get_mac(uint8_t* baseMac) {
-    esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, baseMac);
-    if (ret == ESP_OK) {
-        printf("%02x:%02x:%02x:%02x:%02x:%02x\n",
-                    baseMac[0], baseMac[1], baseMac[2],
-                    baseMac[3], baseMac[4], baseMac[5]);
+    const uint8_t *mac = esp_bt_dev_get_address();
+    if (mac != NULL) {
+        memcpy(baseMac, mac, 6);  // Copia los 6 bytes de la MAC a baseMac
+        printf("MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n",
+               baseMac[0], baseMac[1], baseMac[2],
+               baseMac[3], baseMac[4], baseMac[5]);
     } else {
-        printf("Failed to read MAC address");
+        printf("Failed to read MAC address\n");
     }
 }
 
@@ -94,7 +106,27 @@ char* create_header(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_l
 
     if (res == NULL) {
         ESP_LOGI(TAG,"Error de memoria!");  
-    }    
+    }
+    if (msg_id == NULL) {
+        ESP_LOGI(TAG, "Error: msg_id es NULL");
+        free(res);
+        return NULL;
+    }
+    if (protocol_id == NULL) {
+        ESP_LOGI(TAG, "Error: protocol_id es NULL");
+        free(res);
+        return NULL;
+    }
+    if (transport_layer == NULL) {
+        ESP_LOGI(TAG, "Error: transport_layer es NULL");
+        free(res);
+        return NULL;
+    }
+    if (msg_length == NULL) {
+        ESP_LOGI(TAG, "Error: msg_length es NULL");
+        free(res);
+        return NULL;
+    }
 
     ESP_LOGI(TAG, "%lu", esp_get_free_heap_size());
 
@@ -102,6 +134,7 @@ char* create_header(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_l
     uint8_t baseMac[6];
     ESP_LOGI(TAG,"paso basemac");
     get_mac(baseMac);
+    ESP_LOG_BUFFER_HEX("Base MAC", baseMac, 6); 
     memcpy(res, baseMac, 6);
     memcpy(res + 6, msg_id, 2);
     memcpy(res + 8, protocol_id, 1);
@@ -116,6 +149,8 @@ char* create_header(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_l
  * Function that creates a packet based in the protocol_id given.
  */
 char* create_packet(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_layer, uint16_t* msg_length){
+
+
     uint8_t protocol_packet = *protocol_id;
     char* header = create_header(msg_id, protocol_id, transport_layer, msg_length);
     uint64_t time = esp_timer_get_time();
@@ -155,6 +190,7 @@ char* create_packet(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_l
         memcpy(packet + 12, &time, 4);
         memcpy(packet + 16, &batt_level, 1);
     }
+    /*
     else if(protocol_packet == 2){
         uint8_t temp = rand_int(5,30);
         uint32_t press = rand_int(1000, 1200); 
@@ -181,6 +217,8 @@ char* create_packet(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_l
         memcpy(packet + 22, &hum, 1);
         memcpy(packet + 23, &co, 4);
     }
+    */
+    /*
     else if(protocol_packet == 3){
         uint8_t temp = rand_int(5,30);
         uint32_t press = rand_int(1000, 1200); 
@@ -220,7 +258,7 @@ char* create_packet(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_l
         memcpy(packet + 47, &fre_z, 4);
         memcpy(packet + 51, &rms, 4);
     }
-  
+   */
     return packet;
 }
 
@@ -230,36 +268,38 @@ uint16_t get_message_length(uint8_t protocol_id) {
         case 1: return 5;
         case 2: return 15;
         case 3: return 43;
-        case 4: return 48015; 
+        //case 4: return 48015; 
         default: return 0;
     }
 }
 
 void get_config(uint16_t *msg_id, uint8_t *transport_layer, uint8_t *protocol_id, const uint8_t *data, size_t len) {
 
-    char msg[50];
-    memcpy(msg, data, len);
-    msg[len] = '\0'; 
-
-    *transport_layer = (uint8_t)(msg[0] - '0');
-    *protocol_id = (uint8_t)(msg[1] - '0');
+    *transport_layer = (uint8_t)data[0]- '0';
+    *protocol_id = (uint8_t)data[1]- '0';
 
     int i = 2;
-    while (msg[i + 1] != '#' && i < len - 1) {
+    while (i < len && data[i] != '#') {
         i++;
     }
-    int length = i - 2 + 1;
-    char temp[length + 1];
-    strncpy(temp, &msg[2], length); 
-    temp[length] = '\0';
 
+    if (i >= len) {
+        ESP_LOGE("get_config", "Error: Delimitador '#' no encontrado en los datos para msg_id");
+        return;
+    }
+
+    char temp[10]; 
+    int msg_len = i - 2;
+    strncpy(temp, (const char*)&data[2], msg_len);
+    temp[msg_len] = '\0';
     *msg_id = (uint16_t)atoi(temp);
 
-    ESP_LOGI(TAG, "Transport Layer: %d", *transport_layer);
-    ESP_LOGI(TAG, "Protocol ID: %d", *protocol_id);
-    ESP_LOGI(TAG, "Message ID: %d", *msg_id);
 }
 
+void handle_deep_sleep() {
+    esp_sleep_enable_timer_wakeup(1000000);
+    esp_deep_sleep_start();
+}
 
 /////////////////////////////////////////////////////////// GATTS ///////////////////////////////////////////////////////////////////////////
 
@@ -285,7 +325,7 @@ static void gatts_profile_b_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
 
 #define GATTS_DEMO_CHAR_VAL_LEN_MAX 0x40
 
-#define PREPARE_BUF_MAX_SIZE 1024
+#define PREPARE_BUF_MAX_SIZE 128//1024
 
 static uint8_t char1_str[] = {0x11,0x22,0x33};
 static esp_gatt_char_prop_t a_property = 0;
@@ -477,6 +517,7 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
     }
 }
 
+
 void example_write_event_env(esp_gatt_if_t gatts_if, prepare_type_env_t *prepare_write_env, esp_ble_gatts_cb_param_t *param){
     esp_gatt_status_t status = ESP_GATT_OK;
     if (param->write.need_rsp){
@@ -518,7 +559,6 @@ void example_write_event_env(esp_gatt_if_t gatts_if, prepare_type_env_t *prepare
                    param->write.value,
                    param->write.len);
             prepare_write_env->prepare_len += param->write.len;
-
         }else{
             esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, status, NULL);
         }
@@ -536,6 +576,59 @@ void example_exec_write_event_env(prepare_type_env_t *prepare_write_env, esp_ble
         prepare_write_env->prepare_buf = NULL;
     }
     prepare_write_env->prepare_len = 0;
+}
+
+void manejo_read_event(esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param){
+    //uint8_t *value = NULL;
+    //uint8_t *value = char_value;
+    //uint16_t length = sizeof(char_value); 
+    //esp_err_t ret = esp_ble_gatts_get_attr_value(param->read.handle, &length, &value);
+    if (transport_layer != 5 && protocol_id != 5 ) {
+        
+        //get_config(&msg_id, &transport_layer, &protocol_id,value,length);
+
+        uint16_t msg_length = get_message_length(protocol_id);
+
+        ESP_LOGI(TAG, "MSG_ID: %u", msg_id);
+        ESP_LOGI(TAG, "TRANSPORT_LAYER: %u", transport_layer);
+        ESP_LOGI(TAG, "PROTOCOL_ID: %u", protocol_id);
+        ESP_LOGI(TAG, "MESSAGE_LENGTH: %u", msg_length);
+
+        char *packet = create_packet(&msg_id, &protocol_id, &transport_layer, &msg_length);
+        if (packet == NULL) {
+            ESP_LOGI(TAG,"Error en la creación del paquete!");
+            return;
+        }
+
+        esp_gatt_rsp_t resp;
+        resp.attr_value.len = msg_length+12; 
+        memcpy(resp.attr_value.value, packet, msg_length+12);
+        //resp.attr_value.value = (uint8_t*)packet; 
+        ESP_LOGI(TAG, "SE ENVIO EL PACKETE");
+        esp_ble_gatts_send_response(gatts_if, param->read.conn_id, param->read.trans_id, ESP_GATT_OK, &resp);
+        free(packet);
+
+        msg_id++;
+        if (transport_layer == 0)
+        {
+            stop = 0;
+            handle_deep_sleep();
+            break;
+        }
+        
+    }
+    else{
+        esp_gatt_rsp_t error_response;
+        char * msg = "no hay config";
+        ESP_LOGI(TAG, "error , No encontre nada al leer caracteristica:");
+        error_response.attr_value.len = strlen(msg);
+        memcpy(error_response.attr_value.value, msg, error_response.attr_value.len);
+        //error_response.attr_value.value = (uint8_t*)msg; 
+        esp_ble_gatts_send_response(gatts_if, param->read.conn_id, param->read.trans_id, ESP_GATT_ERROR, &error_response);
+        return;
+
+    }
+    return;
 }
 
 static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param) {
@@ -582,55 +675,22 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
     case ESP_GATTS_READ_EVT: {
         ESP_LOGI(GATTS_TAG, "GATT_READ_EVT, conn_id %d, trans_id %" PRIu32 ", handle %d", param->read.conn_id, param->read.trans_id, param->read.handle);
         if (param->read.handle == gl_profile_tab[PROFILE_A_APP_ID].char_handle) {
-            if (param->read.len >= 1) {
-                if (param->read.value == NULL)
-                {
-                    esp_gatt_rsp_t error_response;
-                    char * msg = 'no hay config';
-                    ESP_LOGI(TAG, "error , No encontre nada al leer caracteristica:");
-                    error_response.attr_value.len = strlen(msg);
-                    resp.attr_value.value = (uint8_t*)msg; 
-                    esp_ble_gatts_send_response(gatts_if, param->read.conn_id, param->read.trans_id, ESP_GATT_ERROR, &error_response);
-                    break;
-                }
-                
-           
-                uint16_t msg_id = 5;
-                uint8_t transport_layer = 5;
-                uint8_t protocol_id = 5;
-                
-
-                get_config(&msg_id, &transport_layer, &protocol_id,param->read.value,param->read.len);
-
-                uint16_t msg_length = get_message_length(protocol_id);
-
-                ESP_LOGI(TAG, "MSG_ID: %u", msg_id);
-                ESP_LOGI(TAG, "TRANSPORT_LAYER: %u", transport_layer);
-                ESP_LOGI(TAG, "PROTOCOL_ID: %u", protocol_id);
-                ESP_LOGI(TAG, "MESSAGE_LENGTH: %u", msg_length);
-
-                char *packet = create_packet(&msg_id, &protocol_id, &transport_layer, NULL);
-                if (packet == NULL) {
-                    ESP_LOGI(TAG,"Error en la creación del paquete!");
-                    break;
-                }
-
-                esp_gatt_rsp_t resp;
-                resp.attr_value.len = msg_length; 
-                resp.attr_value.value = (uint8_t*)packet; 
-
-                esp_ble_gatts_send_response(gatts_if, param->read.conn_id, param->read.trans_id, ESP_GATT_OK, &resp);
-                free(packet);
-
-            }
+            Manejo_read_event(gatts_if,param);
         }
-
         break;
-        
     }
     case ESP_GATTS_WRITE_EVT: {
         ESP_LOGI(GATTS_TAG, "GATT_WRITE_EVT, conn_id %d, trans_id %" PRIu32 ", handle %d", param->write.conn_id, param->write.trans_id, param->write.handle);
         if (!param->write.is_prep){
+            //
+            uint8_t *value = param->write.value;
+            uint16_t length = param->write.len; 
+            ESP_LOG_BUFFER_HEX("Valor de 'value'", value, length);
+            
+            get_config(&msg_id, &transport_layer, &protocol_id,value,length);
+            
+            //memcpy(char_value, param->write.value, param->write.len);
+            //
             ESP_LOGI(GATTS_TAG, "GATT_WRITE_EVT, value len %d, value :", param->write.len);
             esp_log_buffer_hex(GATTS_TAG, param->write.value, param->write.len);
             if (gl_profile_tab[PROFILE_A_APP_ID].descr_handle == param->write.handle && param->write.len == 2){
