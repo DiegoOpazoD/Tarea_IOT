@@ -46,6 +46,7 @@ static const char* TAG = "GATTS";
 uint16_t msg_id = 5;
 uint8_t transport_layer = 5;
 uint8_t protocol_id = 5;
+uint8_t stop = 0;
 
 
 ////////////////////////////////////////////////////////////////////// PACKETS //////////////////////////////////////////////////////////////////////
@@ -573,55 +574,60 @@ void example_exec_write_event_env(prepare_type_env_t *prepare_write_env, esp_ble
 }
 
 void manejo_read_event(esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param){
-    ESP_LOGI(GATTS_TAG, "GATT_READ_EVT, conn_id %d, trans_id %" PRIu32 ", handle %d", param->read.conn_id, param->read.trans_id, param->read.handle);
-        if (param->read.handle == gl_profile_tab[PROFILE_A_APP_ID].char_handle) {
-            //uint8_t *value = NULL;
-            //uint8_t *value = char_value;
-            //uint16_t length = sizeof(char_value); 
-            //esp_err_t ret = esp_ble_gatts_get_attr_value(param->read.handle, &length, &value);
-            if (transport_layer != 5 && protocol_id != 5 ) {
-                
-                //get_config(&msg_id, &transport_layer, &protocol_id,value,length);
+    //uint8_t *value = NULL;
+    //uint8_t *value = char_value;
+    //uint16_t length = sizeof(char_value); 
+    //esp_err_t ret = esp_ble_gatts_get_attr_value(param->read.handle, &length, &value);
+    if (transport_layer != 5 && protocol_id != 5 ) {
+        
+        //get_config(&msg_id, &transport_layer, &protocol_id,value,length);
 
-                uint16_t msg_length = get_message_length(protocol_id);
+        uint16_t msg_length = get_message_length(protocol_id);
 
-                ESP_LOGI(TAG, "MSG_ID: %u", msg_id);
-                ESP_LOGI(TAG, "TRANSPORT_LAYER: %u", transport_layer);
-                ESP_LOGI(TAG, "PROTOCOL_ID: %u", protocol_id);
-                ESP_LOGI(TAG, "MESSAGE_LENGTH: %u", msg_length);
+        ESP_LOGI(TAG, "MSG_ID: %u", msg_id);
+        ESP_LOGI(TAG, "TRANSPORT_LAYER: %u", transport_layer);
+        ESP_LOGI(TAG, "PROTOCOL_ID: %u", protocol_id);
+        ESP_LOGI(TAG, "MESSAGE_LENGTH: %u", msg_length);
 
-                char *packet = create_packet(&msg_id, &protocol_id, &transport_layer, &msg_length);
-                if (packet == NULL) {
-                    ESP_LOGI(TAG,"Error en la creación del paquete!");
-                    return;
-                }
 
-                esp_gatt_rsp_t resp;
-                resp.attr_value.len = msg_length+12; 
-                memcpy(resp.attr_value.value, packet, msg_length+12);
-                //resp.attr_value.value = (uint8_t*)packet; 
-                ESP_LOGI(TAG, "SE ENVIO EL PACKETE");
-                esp_ble_gatts_send_response(gatts_if, param->read.conn_id, param->read.trans_id, ESP_GATT_OK, &resp);
-                free(packet);
-
-                msg_id++;
-
-                
- 
-            }
-            else{
-                esp_gatt_rsp_t error_response;
-                char * msg = "no hay config";
-                ESP_LOGI(TAG, "error , No encontre nada al leer caracteristica:");
-                error_response.attr_value.len = strlen(msg);
-                memcpy(error_response.attr_value.value, msg, error_response.attr_value.len);
-                //error_response.attr_value.value = (uint8_t*)msg; 
-                esp_ble_gatts_send_response(gatts_if, param->read.conn_id, param->read.trans_id, ESP_GATT_ERROR, &error_response);
+        while (TRUE)
+        {
+            char *packet = create_packet(&msg_id, &protocol_id, &transport_layer, &msg_length);
+            if (packet == NULL) {
+                ESP_LOGI(TAG,"Error en la creación del paquete!");
                 return;
-
             }
+
+            esp_gatt_rsp_t resp;
+            resp.attr_value.len = msg_length+12; 
+            memcpy(resp.attr_value.value, packet, msg_length+12);
+            //resp.attr_value.value = (uint8_t*)packet; 
+            ESP_LOGI(TAG, "SE ENVIO EL PACKETE");
+            esp_ble_gatts_send_response(gatts_if, param->read.conn_id, param->read.trans_id, ESP_GATT_OK, &resp);
+            free(packet);
+
+            msg_id++;
+            if (transport_layer == 0 || stop)
+            {
+                stop = 0;
+                break;
+            }
+            
         }
+
+    }
+    else{
+        esp_gatt_rsp_t error_response;
+        char * msg = "no hay config";
+        ESP_LOGI(TAG, "error , No encontre nada al leer caracteristica:");
+        error_response.attr_value.len = strlen(msg);
+        memcpy(error_response.attr_value.value, msg, error_response.attr_value.len);
+        //error_response.attr_value.value = (uint8_t*)msg; 
+        esp_ble_gatts_send_response(gatts_if, param->read.conn_id, param->read.trans_id, ESP_GATT_ERROR, &error_response);
         return;
+
+    }
+    return;
 }
 
 static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param) {
@@ -666,7 +672,10 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
         esp_ble_gatts_create_service(gatts_if, &gl_profile_tab[PROFILE_A_APP_ID].service_id, GATTS_NUM_HANDLE_TEST_A);
         break;
     case ESP_GATTS_READ_EVT: {
-        Manejo_read_event(gatts_if,param);
+        ESP_LOGI(GATTS_TAG, "GATT_READ_EVT, conn_id %d, trans_id %" PRIu32 ", handle %d", param->read.conn_id, param->read.trans_id, param->read.handle);
+        if (param->read.handle == gl_profile_tab[PROFILE_A_APP_ID].char_handle) {
+            Manejo_read_event(gatts_if,param);
+        }
         break;
     }
     case ESP_GATTS_WRITE_EVT: {
@@ -676,6 +685,13 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
             uint8_t *value = param->write.value;
             uint16_t length = param->write.len; 
             ESP_LOG_BUFFER_HEX("Valor de 'value'", value, length);
+            if (length == 1)
+            {
+                ESP_LOGI(GATTS_TAG, "LLEGO WRITE EVENT STOP")
+                stop = 1;
+
+            }
+            
             get_config(&msg_id, &transport_layer, &protocol_id,value,length);
             
             //memcpy(char_value, param->write.value, param->write.len);
