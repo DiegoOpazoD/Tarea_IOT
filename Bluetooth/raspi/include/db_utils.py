@@ -515,3 +515,13 @@ def get_gui_config(conexion_db):
     data = cursor.fetchall()
     
     return data
+
+def get_esp_mac(conexion_db):
+    cursor = conexion_db.cursor()
+    query = "SELECT device_id FROM esp_conf"
+    cursor.execute(query)
+    esp_id = cursor.fetchall()[0][0]
+    #pedimos la mac del dispositivo que queremos usar
+    query = "SELECT device_mac from dev WHERE id = %s"
+    cursor.execute(query,(esp_id,))
+    return cursor.fetchall()[0][0]
