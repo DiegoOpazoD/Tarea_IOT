@@ -190,7 +190,7 @@ char* create_packet(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_l
         memcpy(packet + 12, &time, 4);
         memcpy(packet + 16, &batt_level, 1);
     }
-    /*
+    
     else if(protocol_packet == 2){
         uint8_t temp = rand_int(5,30);
         uint32_t press = rand_int(1000, 1200); 
@@ -217,7 +217,7 @@ char* create_packet(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_l
         memcpy(packet + 22, &hum, 1);
         memcpy(packet + 23, &co, 4);
     }
-    */
+    
     /*
     else if(protocol_packet == 3){
         uint8_t temp = rand_int(5,30);
