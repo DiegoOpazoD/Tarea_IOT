@@ -1,0 +1,110 @@
+CREATE TABLE
+  public.ble_devices (
+    id serial NOT NULL,
+    mac character varying(255) NOT NULL DEFAULT now(),
+    id_dev integer NULL
+  );
+
+ALTER TABLE
+  public.ble_devices
+ADD
+  CONSTRAINT ble_devices_pkey PRIMARY KEY (id)
+--------------------------------------------------------------
+CREATE TABLE
+  public.conf (
+    id serial NOT NULL,
+    protocol character varying(255) NOT NULL,
+    transport_layer character varying(255) NOT NULL
+  );
+
+ALTER TABLE
+  public.conf
+ADD
+  CONSTRAINT conf_pkey PRIMARY KEY (id)
+-----------------------------------------------------------------
+CREATE TABLE
+  public.confactiva (
+    id serial NOT NULL,
+    id_conf_activa integer NOT NULL
+  );
+
+ALTER TABLE
+  public.confactiva
+ADD
+  CONSTRAINT confactiva_pkey PRIMARY KEY (id)
+-------------------------------------------------------------------
+CREATE TABLE
+  public.data (
+    id serial NOT NULL,
+    fk_packet_id integer NOT NULL,
+    "timestamp" bigint NULL,
+    batt_level integer NULL,
+    temp integer NULL,
+    pres integer NULL,
+    hum integer NULL,
+    co real NULL,
+    amp_x real NULL,
+    amp_y real NULL,
+    amp_z real NULL,
+    fre_x real NULL,
+    fre_y real NULL,
+    fre_z real NULL,
+    rms real NULL,
+    acc_x double precision[] NULL,
+    acc_y double precision[] NULL,
+    acc_z double precision[] NULL,
+    gyr_x double precision[] NULL,
+    gyr_y double precision[] NULL,
+    gyr_z double precision[] NULL
+  );
+
+ALTER TABLE
+  public.data
+ADD
+  CONSTRAINT data_pkey PRIMARY KEY (id)
+-----------------------------------------------------------------
+CREATE TABLE
+  public.dev (
+    id serial NOT NULL,
+    device_mac character varying(12) NOT NULL
+  );
+
+ALTER TABLE
+  public.dev
+ADD
+  CONSTRAINT dev_pkey PRIMARY KEY (id)
+--------------------------------------------------------------------
+CREATE TABLE
+  public.esp_conf (id serial NOT NULL, device_id integer NOT NULL);
+
+ALTER TABLE
+  public.esp_conf
+ADD
+  CONSTRAINT esp_conf_pkey PRIMARY KEY (id)
+------------------------------------------------------------------------
+CREATE TABLE
+  public.gui_conf (
+    id serial NOT NULL,
+    gui_current_conf integer NOT NULL DEFAULT 0
+  );
+
+ALTER TABLE
+  public.gui_conf
+ADD
+  CONSTRAINT gui_conf_pkey PRIMARY KEY (id)
+------------------------------------------------------------------------
+CREATE TABLE
+  public.log (
+    packet_id serial NOT NULL,
+    fk_device_id integer NOT NULL,
+    msg_id integer NOT NULL,
+    protocol_id integer NOT NULL,
+    transport_layer integer NOT NULL,
+    length integer NOT NULL
+  );
+
+ALTER TABLE
+  public.log
+ADD
+  CONSTRAINT log_pkey PRIMARY KEY (packet_id)
+-----------------------------------------------------------------------

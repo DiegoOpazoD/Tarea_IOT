@@ -515,3 +515,75 @@ def get_gui_config(conexion_db):
     data = cursor.fetchall()
     
     return data
+
+def update_esp(conexion_db, current_esp):
+    '''
+    Función que actualiza la esp en la base de datos.
+    '''
+    cursor = None
+    try:
+        cursor = conexion_db.cursor()
+        query = "UPDATE esp_conf SET device_id = %s WHERE device_id IS NOT NULL;"
+        cursor.execute(query, (current_esp,))
+        conexion_db.commit()
+    except Exception as e:
+        print(f"Error al actualizar conf de la gui: {e}")
+        return False
+    finally:
+        if cursor:
+            cursor.close()
+    return True
+
+
+def get_esp(conexion_db):
+
+    cursor = conexion_db.cursor()
+    query = "SELECT * FROM ble_devices"
+    cursor.execute(query)
+    data = cursor.fetchall()
+    
+    return data
+
+def update_esp_conf(conexion_db, id):
+    cursor = None
+    try:
+        cursor = conexion_db.cursor()
+        query = "UPDATE esp_conf SET device_id = %s WHERE device_id IS NOT NULL;"
+        print(id)
+        cursor.execute(query, (id, ))
+        conexion_db.commit()
+    except Exception as e:
+        print(f"Error al actualizar conf de la esp: {e}")
+        return False
+    finally:
+        if cursor:
+            cursor.close()
+    return True
+    
+def update_scanned_esp(conexion_db,scanned_esps):
+    cursor = conexion_db.cursor()
+    #Limpiar la tabla ble_devices
+    query = "DELETE FROM ble_devices"
+    cursor.execute(query)
+    print("guardando esps scaneadas en ble_devices")
+    for esp in scanned_esps:
+        
+        mac_address = esp.address.replace(":", "").lower()
+
+        guardar_dispositivo(mac_address,conexion_db)
+        query = "SELECT id FROM dev WHERE device_mac = %s"
+        cursor.execute(query, (mac_address,))
+        result = cursor.fetchone()  
+        if result:
+            id_dev = result[0]
+            query = "INSERT INTO ble_devices (mac, id_dev) VALUES (%s, %s)"
+            cursor.execute(query, (mac_address, id_dev))
+    conexion_db.commit()
+    return
+
+def get_esp_conf(conexion_db):
+    cursor = conexion_db.cursor()
+    query = "SELECT * FROM esp_conf"
+    cursor.execute(query)
+    esp_conf = cursor.fetchall()[0][1]
+    return esp_conf

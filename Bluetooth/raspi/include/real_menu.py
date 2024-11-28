@@ -30,14 +30,51 @@ class Canvas (FigureCanvas):
 class Ui_MainWindow(object):
     def __init__(self, MainWindow):
         self.setupUi(MainWindow)  
+        
+        self.timers = {}
 
-        self.timer = QTimer(MainWindow)  
-        self.timer.timeout.connect(lambda : self.plot_graph("batt"))
+        self.timerBatt = QTimer(MainWindow)  
+        self.timerBatt.timeout.connect(lambda : self.plot_graph("batt"))
+
+        self.timerCo= QTimer(MainWindow)  
+        self.timerCo.timeout.connect(lambda : self.plot_graph("co"))
+
+        self.timerPress = QTimer(MainWindow)  
+        self.timerPress.timeout.connect(lambda : self.plot_graph("pres"))
+
+        self.timerHum = QTimer(MainWindow)  
+        self.timerHum.timeout.connect(lambda : self.plot_graph("hum"))
+
+        self.timerTemp = QTimer(MainWindow)  
+        self.timerTemp.timeout.connect(lambda : self.plot_graph("temp"))
+
+        self.timerXAmp = QTimer(MainWindow)  
+        self.timerXAmp.timeout.connect(lambda : self.plot_graph("amp_x"))
+
+        self.timerYAmp = QTimer(MainWindow)  
+        self.timerYAmp.timeout.connect(lambda : self.plot_graph("amp_y"))
+
+        self.timerZAmp = QTimer(MainWindow)  
+        self.timerZAmp.timeout.connect(lambda : self.plot_graph("amp_z"))
+
+        self.timerXFreq = QTimer(MainWindow)  
+        self.timerXFreq.timeout.connect(lambda : self.plot_graph("freq_x"))
+
+        self.timerYFreq = QTimer(MainWindow)  
+        self.timerYFreq.timeout.connect(lambda : self.plot_graph("freq_y"))
+
+        self.timerZFreq = QTimer(MainWindow)  
+        self.timerZFreq.timeout.connect(lambda : self.plot_graph("freq_z"))
+
+        self.timerRMS = QTimer(MainWindow)  
+        self.timerRMS.timeout.connect(lambda : self.plot_graph("rms"))
 
 
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(640, 480)
+
+        self.currentGraph = ""
 
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
@@ -127,16 +164,20 @@ class Ui_MainWindow(object):
         self.menuLabel.setObjectName("menuLabel")
 
         self.editProtocolButton = QtWidgets.QPushButton(self.page)
-        self.editProtocolButton.setGeometry(QtCore.QRect(270, 350, 75, 23))
+        self.editProtocolButton.setGeometry(QtCore.QRect(270, 325, 75, 23))
         self.editProtocolButton.setObjectName("editProtocolButton")
 
         self.connectBluetooth = QtWidgets.QPushButton(self.page)
-        self.connectBluetooth.setGeometry(QtCore.QRect(255, 370, 115, 23))
+        self.connectBluetooth.setGeometry(QtCore.QRect(255, 350, 115, 23))
         self.connectBluetooth.setObjectName("connectBluetooth")
 
         self.disconnectBluetooth = QtWidgets.QPushButton(self.page)
-        self.disconnectBluetooth.setGeometry(QtCore.QRect(255, 390, 115, 23))
+        self.disconnectBluetooth.setGeometry(QtCore.QRect(255, 375, 115, 23))
         self.disconnectBluetooth.setObjectName("disconnectBluetooth")
+
+        self.changeESP = QtWidgets.QPushButton(self.page)
+        self.changeESP.setGeometry(QtCore.QRect(255, 400, 115, 23))
+        self.changeESP.setObjectName("changeESP")
 
 
         self.stackedWidget.addWidget(self.page)
@@ -156,12 +197,17 @@ class Ui_MainWindow(object):
         self.updateButton.setGeometry(QtCore.QRect(275, 220, 75, 23))
         self.updateButton.setObjectName("updateButton")
 
+        self.protocolButton = QtWidgets.QPushButton(self.page_2)
+        self.protocolButton.setGeometry(QtCore.QRect(240, 245, 150, 23))
+        self.protocolButton.setCheckable(True)
+        self.protocolButton.setObjectName("protocolButton")
+
         self.back2Button = QtWidgets.QPushButton(self.page_2)
-        self.back2Button.setGeometry(QtCore.QRect(275, 240, 75, 23))
+        self.back2Button.setGeometry(QtCore.QRect(275, 270, 75, 23))
         self.back2Button.setObjectName("back2Button")
 
         self.errorLabel = QtWidgets.QLabel(self.page_2)
-        self.errorLabel.setGeometry(QtCore.QRect(237, 260, 47, 14))
+        self.errorLabel.setGeometry(QtCore.QRect(237, 295, 47, 14))
         self.errorLabel.setStyleSheet("color: red")
         self.errorLabel.setObjectName("errorLabel")
         self.errorLabel.hide()
@@ -178,6 +224,11 @@ class Ui_MainWindow(object):
         self.graph_layout = QtWidgets.QVBoxLayout(self.page_12)
 
         self.stackedWidget.addWidget(self.page_12)
+        
+        self.page_ble = QtWidgets.QWidget()
+        self.page_ble.setObjectName("page_ble")
+
+        self.stackedWidget.addWidget(self.page_ble)
 
         MainWindow.setCentralWidget(self.centralwidget)
 
@@ -215,12 +266,24 @@ class Ui_MainWindow(object):
         self.batteryButton.clicked.connect(lambda:self.loadGraph("batt"))
         self.editProtocolButton.clicked.connect(self.goEdit)
         self.updateButton.clicked.connect(self.updateConfactiva)
+        self.protocolButton.clicked.connect(self.contToDisc)
+        self.changeESP.clicked.connect(self.swap_esp)
         self.connectBluetooth.clicked.connect(self.connectToBluetooth)
         self.disconnectBluetooth.clicked.connect(self.disconnectFromBluetooth)
 
         self.retranslateUi(MainWindow)
         self.stackedWidget.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
+
+
+        self.bluetoothLabel = QtWidgets.QLabel(self.page_ble)
+        self.bluetoothLabel.setGeometry(QtCore.QRect(255, 220, 115, 23))
+        self.bluetoothLabel.show()
+        self.bluetoothLabel.setObjectName("bluetoothLabel")
+        self.bluetoothLabel.setText("Bluetooth Available:")
+
+        self.load_buttons()
+        
 
 
     def retranslateUi(self, MainWindow):
@@ -245,12 +308,27 @@ class Ui_MainWindow(object):
         self.disconnectBluetooth.setText(_translate("MainWindow", "Disconnect Bluetooth"))
         self.errorLabel.setText(_translate("MainWindow", "Please introduce a valid protocol"))
         self.updateButton.setText(_translate("MainWindow", "Update"))
+        self.protocolButton.setText(_translate("MainWindow", "Toggle Continuous"))
         self.backButton.setText(_translate("MainWindow", "Back"))
         self.back2Button.setText(_translate("MainWindow", "Back"))
+        self.changeESP.setText(_translate("MainWindow", "Change ESP"))
 
 
     def goBack(self):
-        self.timer.stop()
+        self.currentGraph = ""
+        self.dispositivos = []
+        self.timerTemp.stop()
+        self.timerBatt.stop()
+        self.timerPress.stop()
+        self.timerHum.stop()
+        self.timerCo.stop()
+        self.timerXAmp.stop()
+        self.timerYAmp.stop()
+        self.timerZAmp.stop()
+        self.timerXFreq.stop()
+        self.timerYFreq.stop()
+        self.timerZFreq.stop()
+        self.timerRMS.stop()
         self.errorLabel.hide()
         self.stackedWidget.setCurrentIndex(0)
 
@@ -262,17 +340,35 @@ class Ui_MainWindow(object):
     def goGraph(self):
         self.stackedWidget.setCurrentIndex(2)
 
+    def contToDisc(self):
+        if (self.protocolButton.isCheckable()):
+            self.protocolButton.setStyleSheet("background-color : lightgrey")
+        else: 
+            self.protocolButton.setStyleSheet("background-color : white")
+
+        self.protocolButton.setCheckable(not self.protocolButton.isCheckable())
+
+    def foo(self, ble_id):
+        update_esp_conf(self.conexion_db, ble_id) 
+        self.goBack()
 
     def updateConfactiva(self):
         protocol = self.protocolLineEdit.text()
+        toggled = self.protocolButton.isCheckable()
         self.protocolLineEdit.clear()
 
         match protocol:
             case "p0" | "0" | "P0":
-                update_conf_activa(self.conexion_db, 1)
+                update_conf_activa(self.conexion_db, 1 if toggled else 6)
                 self.errorLabel.hide()
             case "p1" | "1" | "P1":
-                update_conf_activa(self.conexion_db, 2)
+                update_conf_activa(self.conexion_db, 2 if toggled else 7)
+                self.errorLabel.hide()
+            case "p2" | "2" | "P2":
+                update_conf_activa(self.conexion_db, 3 if toggled else 8)
+                self.errorLabel.hide()
+            case "p3" | "3" | "P3":
+                update_conf_activa(self.conexion_db, 4 if toggled else 9)
                 self.errorLabel.hide()
             case _:
                 self.errorLabel.show()
@@ -280,53 +376,88 @@ class Ui_MainWindow(object):
 
 
     def loadGraph(self, graph_type: str):
+        self.currentGraph = graph_type
         self.plot_graph(graph_type)
         self.stackedWidget.setCurrentIndex(2)
 
 
     def plot_graph(self, graph_type):
 
-        self.timer.start(1000)
         
         match graph_type:
             case "batt":
                 times, values = get_batt_history(self.conexion_db)
                 title = "Time vs Battery"
                 value = "Battery"
+                self.timerBatt.start(1000)
+    
             case "temp":
                 times, values = get_temp_history(self.conexion_db)
-                title = "Time vs Battery"
-                value = "Battery"
+                title = "Time vs Temperature"
+                value = "Temperature"
+                self.timerTemp.start(1000)
+
             case "pres":
                 times, values = get_pres_history(self.conexion_db)
-                title = "Time vs Battery"
+                title = "Time vs Pressure"
+                value = "Pressure"
+                self.timerPress.start(1000)
+
             case "hum":
                 times, values = get_hum_history(self.conexion_db)
-                title = "Time vs Battery"
+                title = "Time vs Humidity"
+                value = "Humidity"
+                self.plot="hum"
+                self.timerHum.start(1000)
+
             case "co":
                 times, values = get_co_history(self.conexion_db)
-                title = "Time vs Battery"
+                title = "Time vs Co"
+                value = "Co"
+                self.timerCo.start(1000)
+
             case "amp_x":
                 times, values = get_amp_x_history(self.conexion_db)
-                title = "Time vs Battery"
+                title = "Time vs X-Amplitude"
+                value = "X-Amplitude"
+                self.timerXAmp.start(1000)
+
             case "amp_y":
                 times, values = get_amp_y_history(self.conexion_db)
-                title = "Time vs Battery"
+                title = "Time vs Y-Amplitude"
+                value = "Y-Amplitude"
+                self.timerYAmp.start(1000)
+
             case "amp_z":
                 times, values = get_amp_z_history(self.conexion_db)
-                title = "Time vs Battery"
+                title = "Time vs Z-Amplitude"
+                value = "Z-Amplitude"
+                self.timerZAmp.start(1000)
+
             case "freq_x":
                 times, values = get_freq_x_history(self.conexion_db)
-                title = "Time vs Battery"
+                title = "Time vs X-Frequency"
+                value = "X-Frequency"
+                self.timerXFreq.start(1000)
+
             case "freq_y":
                 times, values = get_freq_y_history(self.conexion_db)
-                title = "Time vs Battery"
+                title = "Time vs Y-Frequency"
+                value = "Y-Frequency"
+                self.timerYFreq.start(1000)
+
             case "freq_z":
                 times, values = get_freq_z_history(self.conexion_db)
-                title = "Time vs Battery"
+                title = "Time vs Z-Frequency"
+                value = "Z-Frequency"
+                self.timerZFreq.start(1000)
+
             case "rms":
                 times, values = get_rms_history(self.conexion_db)
-                title = "Time vs Battery"
+                title = "Time vs RMS"
+                value = "RMS"
+                self.timerRMS.start(1000)
+
 
         for i in reversed(range(self.graph_layout.count())):
             widget = self.graph_layout.itemAt(i).widget()
@@ -343,6 +474,22 @@ class Ui_MainWindow(object):
     
     def disconnectFromBluetooth(self):
         update_gui_conf(self.conexion_db,0)
+
+    def load_buttons(self):
+        self.dispositivos = get_esp(self.conexion_db)
+
+        i = 0  # Ensure 'i' is initialized
+        for dipositivo in self.dispositivos:
+            button = QtWidgets.QPushButton(self.page_ble)
+            button.setGeometry(QtCore.QRect(255, 250 + i, 115, 23))
+            button.setText(dipositivo[1])
+            button.clicked.connect(lambda _, dispositivo_data=dipositivo[2]: self.foo(dispositivo_data))
+            print(dipositivo[2])
+            i += 30
+
+    def swap_esp(self):
+        self.load_buttons()
+        self.stackedWidget.setCurrentIndex(3)
 
 
 if __name__ == "__main__":
