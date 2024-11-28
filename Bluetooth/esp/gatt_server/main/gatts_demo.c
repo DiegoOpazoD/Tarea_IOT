@@ -192,6 +192,7 @@ char* create_packet(uint16_t* msg_id, uint8_t* protocol_id, uint8_t* transport_l
         memcpy(packet + 16, &batt_level, 1);
     }
     
+    
     else if(protocol_packet == 2){
         ESP_LOGI(TAG,"Protocolo 2");
         uint8_t temp = rand_int(5,30);
@@ -298,6 +299,11 @@ void get_config(uint16_t *msg_id, uint8_t *transport_layer, uint8_t *protocol_id
     temp[msg_len] = '\0';
     *msg_id = (uint16_t)atoi(temp);
 
+}
+
+void handle_deep_sleep() {
+    esp_sleep_enable_timer_wakeup(1000000);
+    esp_deep_sleep_start();
 }
 
 void handle_deep_sleep() {

@@ -76,6 +76,8 @@ class Ui_MainWindow(object):
 
         self.currentGraph = ""
 
+        self.currentGraph = ""
+
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
 
@@ -165,13 +167,16 @@ class Ui_MainWindow(object):
 
         self.editProtocolButton = QtWidgets.QPushButton(self.page)
         self.editProtocolButton.setGeometry(QtCore.QRect(270, 325, 75, 23))
+        self.editProtocolButton.setGeometry(QtCore.QRect(270, 325, 75, 23))
         self.editProtocolButton.setObjectName("editProtocolButton")
 
         self.connectBluetooth = QtWidgets.QPushButton(self.page)
         self.connectBluetooth.setGeometry(QtCore.QRect(255, 350, 115, 23))
+        self.connectBluetooth.setGeometry(QtCore.QRect(255, 350, 115, 23))
         self.connectBluetooth.setObjectName("connectBluetooth")
 
         self.disconnectBluetooth = QtWidgets.QPushButton(self.page)
+        self.disconnectBluetooth.setGeometry(QtCore.QRect(255, 375, 115, 23))
         self.disconnectBluetooth.setGeometry(QtCore.QRect(255, 375, 115, 23))
         self.disconnectBluetooth.setObjectName("disconnectBluetooth")
 
@@ -202,11 +207,18 @@ class Ui_MainWindow(object):
         self.protocolButton.setCheckable(True)
         self.protocolButton.setObjectName("protocolButton")
 
+        self.protocolButton = QtWidgets.QPushButton(self.page_2)
+        self.protocolButton.setGeometry(QtCore.QRect(240, 245, 150, 23))
+        self.protocolButton.setCheckable(True)
+        self.protocolButton.setObjectName("protocolButton")
+
         self.back2Button = QtWidgets.QPushButton(self.page_2)
+        self.back2Button.setGeometry(QtCore.QRect(275, 270, 75, 23))
         self.back2Button.setGeometry(QtCore.QRect(275, 270, 75, 23))
         self.back2Button.setObjectName("back2Button")
 
         self.errorLabel = QtWidgets.QLabel(self.page_2)
+        self.errorLabel.setGeometry(QtCore.QRect(237, 295, 47, 14))
         self.errorLabel.setGeometry(QtCore.QRect(237, 295, 47, 14))
         self.errorLabel.setStyleSheet("color: red")
         self.errorLabel.setObjectName("errorLabel")
@@ -312,6 +324,7 @@ class Ui_MainWindow(object):
         self.backButton.setText(_translate("MainWindow", "Back"))
         self.back2Button.setText(_translate("MainWindow", "Back"))
         self.changeESP.setText(_translate("MainWindow", "Change ESP"))
+        self.changeESP.setText(_translate("MainWindow", "Change ESP"))
 
 
     def goBack(self):
@@ -355,13 +368,22 @@ class Ui_MainWindow(object):
     def updateConfactiva(self):
         protocol = self.protocolLineEdit.text()
         toggled = self.protocolButton.isCheckable()
+        toggled = self.protocolButton.isCheckable()
         self.protocolLineEdit.clear()
 
         match protocol:
             case "p0" | "0" | "P0":
                 update_conf_activa(self.conexion_db, 1 if toggled else 6)
+                update_conf_activa(self.conexion_db, 1 if toggled else 6)
                 self.errorLabel.hide()
             case "p1" | "1" | "P1":
+                update_conf_activa(self.conexion_db, 2 if toggled else 7)
+                self.errorLabel.hide()
+            case "p2" | "2" | "P2":
+                update_conf_activa(self.conexion_db, 3 if toggled else 8)
+                self.errorLabel.hide()
+            case "p3" | "3" | "P3":
+                update_conf_activa(self.conexion_db, 4 if toggled else 9)
                 update_conf_activa(self.conexion_db, 2 if toggled else 7)
                 self.errorLabel.hide()
             case "p2" | "2" | "P2":
@@ -376,6 +398,7 @@ class Ui_MainWindow(object):
 
 
     def loadGraph(self, graph_type: str):
+        self.currentGraph = graph_type
         self.currentGraph = graph_type
         self.plot_graph(graph_type)
         self.stackedWidget.setCurrentIndex(2)
